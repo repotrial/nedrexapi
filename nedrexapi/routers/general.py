@@ -269,8 +269,6 @@ def id_map(t: str, q: list[str] = DEFAULT_QUERY):
     The values in the hash map are an array because, rarely, integrated databases (e.g., MONDO) map a single external
     identifier onto two nodes.
     An array is returned so that the choice of how to handle this is in control of the client.
-    An example route for this is [/disorder?q=mesh.C538322](https://api.nedrex.net/id_map/disorder?q=mesh.C538322),
-    which returns the primary domain ID(s) for the disorder(s) cross referenced to the MeSH term C53822.
     """
     # If the user supplied no query parameters.
     if not q:
