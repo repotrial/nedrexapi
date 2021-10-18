@@ -1,5 +1,8 @@
+from csv import DictWriter as _DictWriter
+from io import StringIO as _StringIO
+
 from cachetools import LRUCache as _LRUCache, cached as _cached  # type: ignore
-from fastapi import APIRouter as _APIRouter, HTTPException as _HTTPException
+from fastapi import APIRouter as _APIRouter, HTTPException as _HTTPException, Response as _Response
 from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.db import MongoInstance
@@ -89,3 +92,45 @@ def list_attributes(t: str):
         attributes |= set(doc.keys())
     attributes.remove("_id")
     return attributes
+
+
+@router.get("/{t}/attributes/{attribute}/{format}")
+def get_attribute_values(t: str, attribute: str, format: str):
+    assert MongoInstance.DB is not None
+
+    if t in config["api.node_collections"]:
+        results = [
+            {"primaryDomainId": i["primaryDomainId"], attribute: i.get(attribute)} for i in MongoInstance.DB[t].find()
+        ]
+    elif t in config["api.edge_collections"]:
+        try:
+            results = [
+                {
+                    "sourceDomainId": i["sourceDomainId"],
+                    "targetDomainId": i["targetDomainId"],
+                    attribute: i.get(attribute),
+                }
+                for i in MongoInstance.DB[t].find()
+            ]
+        except KeyError:
+            results = [
+                {
+                    "memberOne": i["memberOne"],
+                    "memberTwo": i["memberTwo"],
+                    attribute: i.get(attribute),
+                }
+                for i in MongoInstance.DB[t].find()
+            ]
+    else:
+        raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
+
+    if format == "json":
+        return results
+    elif format in {"csv", "tsv"}:
+        delimiter = "," if format == "csv" else "\t"
+        string = _StringIO()
+        keys = results[0].keys()
+        dict_writer = _DictWriter(string, keys, delimiter=delimiter)
+        dict_writer.writeheader()
+        dict_writer.writerows(results)
+        return _Response(content=string.getvalue(), media_type="plain/text")
