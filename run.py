@@ -2,12 +2,13 @@ import uvicorn as _uvicorn
 
 from uvicorn.config import LOGGING_CONFIG as _LOGGING_CONFIG  # type: ignore
 
-from nedrexapi.db import MongoInstance
+from nedrexapi.db import MongoInstance, create_directories
 from nedrexapi.config import parse_config, config
 
 
 parse_config(".config.toml")
 MongoInstance.connect("dev")
+create_directories()
 
 APP_STRING = "nedrexapi.main:app"
 

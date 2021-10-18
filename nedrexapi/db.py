@@ -1,9 +1,15 @@
 from dataclasses import dataclass as _dataclass
+from pathlib import Path as _Path
 from typing import Optional as _Optional
 
 from pymongo import MongoClient as _MongoClient, database as _database  # type: ignore
 
 from nedrexapi.config import config as _config
+
+
+def create_directories():
+    _Path(_config["api.directories.static"]).mkdir(exist_ok=True, parents=True)
+    _Path(_config["api.directories.data"]).mkdir(exist_ok=True, parents=True)
 
 
 @_dataclass
