@@ -11,6 +11,17 @@ from nedrexapi.config import config
 router = _APIRouter()
 
 
+class AttributeRequest(_BaseModel):
+    node_ids: list[str] = _Field(None, title="Primary domain IDs of nodes")
+    attributes: list[str] = _Field(None, title="Attributes requested")
+
+    class Config:
+        extra = "forbid"
+
+
+DEFAULT_ATTRIBUTE_REQUEST = AttributeRequest()
+
+
 @router.get(
     "/list_node_collections",
     responses={200: {"content": {"application/json": {"example": ["disorder", "drug", "gene", "pathway", "protein"]}}}},
@@ -49,14 +60,6 @@ def list_edge_collections():
     return config["api.edge_collections"]
 
 
-class AttributeRequest(_BaseModel):
-    node_ids: list[str] = _Field(None, title="Primary domain IDs of nodes")
-    attributes: list[str] = _Field(None, title="Attributes requested")
-
-    class Config:
-        extra = "forbid"
-
-
 @router.get(
     "/{t}/attributes",
     responses={
@@ -85,10 +88,9 @@ class AttributeRequest(_BaseModel):
 def list_attributes(t: str):
     if t not in config["api.node_collections"] + config["api.edge_collections"]:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
-    assert MongoInstance.DB is not None
 
     attributes: set[str] = set()
-    for doc in MongoInstance.DB[t].find():
+    for doc in MongoInstance.DB()[t].find():
         attributes |= set(doc.keys())
     attributes.remove("_id")
     return attributes
@@ -96,11 +98,9 @@ def list_attributes(t: str):
 
 @router.get("/{t}/attributes/{attribute}/{format}")
 def get_attribute_values(t: str, attribute: str, format: str):
-    assert MongoInstance.DB is not None
-
     if t in config["api.node_collections"]:
         results = [
-            {"primaryDomainId": i["primaryDomainId"], attribute: i.get(attribute)} for i in MongoInstance.DB[t].find()
+            {"primaryDomainId": i["primaryDomainId"], attribute: i.get(attribute)} for i in MongoInstance.DB()[t].find()
         ]
     elif t in config["api.edge_collections"]:
         try:
@@ -110,7 +110,7 @@ def get_attribute_values(t: str, attribute: str, format: str):
                     "targetDomainId": i["targetDomainId"],
                     attribute: i.get(attribute),
                 }
-                for i in MongoInstance.DB[t].find()
+                for i in MongoInstance.DB()[t].find()
             ]
         except KeyError:
             results = [
@@ -119,7 +119,7 @@ def get_attribute_values(t: str, attribute: str, format: str):
                     "memberTwo": i["memberTwo"],
                     attribute: i.get(attribute),
                 }
-                for i in MongoInstance.DB[t].find()
+                for i in MongoInstance.DB()[t].find()
             ]
     else:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
@@ -130,7 +130,35 @@ def get_attribute_values(t: str, attribute: str, format: str):
         delimiter = "," if format == "csv" else "\t"
         string = _StringIO()
         keys = results[0].keys()
-        dict_writer = _DictWriter(string, keys, delimiter=delimiter)
+        dict_writer = _DictWriter(string, list(keys), delimiter=delimiter)
+        dict_writer.writeheader()
+        dict_writer.writerows(results)
+        return _Response(content=string.getvalue(), media_type="plain/text")
+
+
+@router.get("/{t}/attributes_v2/{format}", summary="Get collection member attribute values")
+def get_node_attribute_values(t: str, format: str, ar: AttributeRequest = DEFAULT_ATTRIBUTE_REQUEST):
+    if t not in config.get("api.node_collections"):
+        raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
+    if ar.attributes is None:
+        raise _HTTPException(status_code=404, detail="No attribute(s) requested")
+    if ar.node_ids is None:
+        raise _HTTPException(status_code=404, detail="No node(s) requested")
+
+    query = {"primaryDomainId": {"$in": ar.node_ids}}
+
+    results = [
+        {"primaryDomainId": i["primaryDomainId"], **{attribute: i.get(attribute) for attribute in ar.attributes}}
+        for i in MongoInstance.DB()[t].find(query)
+    ]
+
+    if format == "json":
+        return results
+    elif format in {"csv", "tsv"}:
+        delimiter = "," if format == "csv" else "\t"
+        string = _StringIO()
+        keys = results[0].keys()
+        dict_writer = _DictWriter(string, list(keys), delimiter=delimiter)
         dict_writer.writeheader()
         dict_writer.writerows(results)
         return _Response(content=string.getvalue(), media_type="plain/text")
