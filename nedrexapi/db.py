@@ -33,4 +33,4 @@ class MongoInstance:
         dbname = _config["db.mongo_db"]
 
         cls._CLIENT = _MongoClient(host=host, port=port)
-        cls._DB = cls.CLIENT[dbname]
+        cls._DB = cls.CLIENT()[dbname]
