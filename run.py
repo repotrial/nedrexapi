@@ -19,6 +19,7 @@ def run():
         APP_STRING,
         port=config["api.port"],
         reload=True,
+        host=config["api.host"],
     )
 
 

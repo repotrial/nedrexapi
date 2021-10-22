@@ -1,6 +1,12 @@
 from fastapi import FastAPI
 
-from nedrexapi.routers import general as _general, disorder as _disorder, ppi as _ppi, relations as _relations
+from nedrexapi.routers import (
+    general as _general,
+    disorder as _disorder,
+    ppi as _ppi,
+    relations as _relations,
+    graph as _graph,
+)
 
 app = FastAPI(
     title="NeDRexAPI",
@@ -21,3 +27,4 @@ app.include_router(_general.router, tags=["General"])
 app.include_router(_disorder.router, prefix="/disorder", tags=["Disorder"])
 app.include_router(_ppi.router, tags=["PPI routes"])
 app.include_router(_relations.router, prefix="/relations", tags=["Relations"])
+app.include_router(_graph.router, prefix="/graph", tags=["Graph"])
