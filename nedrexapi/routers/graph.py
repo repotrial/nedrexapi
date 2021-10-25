@@ -25,7 +25,7 @@ _MONGO_CLIENT = _MongoClient(port=_config["api.mongo_port"])
 _MONGO_DB = _MONGO_CLIENT[_config["api.mongo_db"]]
 
 _GRAPH_COLL = _MONGO_DB["graphs_"]
-_GRAPH_DIR = _Path(_config["api.directories.data"])
+_GRAPH_DIR = _Path(_config["api.directories.data"]) / "graphs_"
 _GRAPH_COLL_LOCK = _Lock()
 
 DEFAULT_NODE_COLLECTIONS = ["disorder", "drug", "gene", "protein"]

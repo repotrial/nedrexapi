@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from nedrexapi.routers import (
+    bicon as _bicon,
     general as _general,
     disorder as _disorder,
     ppi as _ppi,
@@ -28,3 +29,4 @@ app.include_router(_disorder.router, prefix="/disorder", tags=["Disorder"])
 app.include_router(_ppi.router, tags=["PPI routes"])
 app.include_router(_relations.router, prefix="/relations", tags=["Relations"])
 app.include_router(_graph.router, prefix="/graph", tags=["Graph"])
+app.include_router(_bicon.router, prefix="/bicon", tags=["BiCoN"])
