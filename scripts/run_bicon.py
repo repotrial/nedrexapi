@@ -29,7 +29,7 @@ def run(expression, network, lg_min, lg_max, outdir):
     results = results_analysis(solution, labels)
 
     print("Saving output")
-    results.save(output = Path(outdir) / "results.csv")
+    results.save(output=Path(outdir) / "results.csv")
     print("Saving network visualization")
     results.show_networks(GE, G, output=Path(outdir) / "network.png")
     print("Saving clustermap")
@@ -44,19 +44,17 @@ def run(expression, network, lg_min, lg_max, outdir):
     GE_small.columns = results.patients1 + results.patients2
 
     means1 = list(
-        np.mean(GE_small[results.patients1].loc[results.genes1], axis=1) -
-        np.mean(GE_small[results.patients2].loc[results.genes1], axis=1)
-        .values
+        np.mean(GE_small[results.patients1].loc[results.genes1], axis=1)
+        - np.mean(GE_small[results.patients2].loc[results.genes1], axis=1).values
     )
     means2 = list(
-        np.mean(GE_small[results.patients1].loc[results.genes2], axis=1) -
-        np.mean(GE_small[results.patients2].loc[results.genes2], axis=1)
-        .values
+        np.mean(GE_small[results.patients1].loc[results.genes2], axis=1)
+        - np.mean(GE_small[results.patients2].loc[results.genes2], axis=1).values
     )
 
     result = {}
-    result["genes1"] = [{"gene" : gene, "mean diff expression": m} for gene, m in zip(results.genes1, means1)]
-    result["genes2"] = [{"gene" : gene, "mean diff expression": m} for gene, m in zip(results.genes2, means2)]
+    result["genes1"] = [{"gene": gene, "mean diff expression": m} for gene, m in zip(results.genes1, means1)]
+    result["genes2"] = [{"gene": gene, "mean diff expression": m} for gene, m in zip(results.genes2, means2)]
 
     json_out = Path(outdir) / "results.json"
 
@@ -64,6 +62,7 @@ def run(expression, network, lg_min, lg_max, outdir):
         json.dump(result, f)
 
     print("Done!")
+
 
 if __name__ == "__main__":
     run()
