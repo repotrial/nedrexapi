@@ -8,6 +8,7 @@ from nedrexapi.routers import (
     relations as _relations,
     graph as _graph,
     static as _static,
+    diamond as _diamond,
 )
 
 app = FastAPI(
@@ -32,3 +33,4 @@ app.include_router(_relations.router, prefix="/relations", tags=["Relations"])
 app.include_router(_graph.router, prefix="/graph", tags=["Graph"])
 app.include_router(_bicon.router, prefix="/bicon", tags=["BiCoN"])
 app.include_router(_static.router, prefix="/static", tags=["Static"])
+app.include_router(_diamond.router, prefix="/diamond", tags=["DIAMOnD"])
