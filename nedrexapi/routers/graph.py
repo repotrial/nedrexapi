@@ -170,7 +170,8 @@ async def graph_builder(background_tasks: _BackgroundTasks, build_request: Build
         "illicit",
         "investigational",
         "nutraceutical",
-        "vet_approved" "withdrawn",
+        "vet_approved",
+        "withdrawn",
     ]
     valid_ppi_evidence = ["exp", "ortho", "pred"]
 

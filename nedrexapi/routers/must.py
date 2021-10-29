@@ -1,6 +1,8 @@
 import shutil as _shutil
+import subprocess as _subprocess
 import tempfile as _tempfile
 import traceback as _traceback
+from csv import DictReader as _DictReader
 from functools import lru_cache as _lru_cache
 from multiprocessing import Lock as _Lock
 from pathlib import Path as _Path
@@ -202,3 +204,63 @@ def run_must(uid):
     with open(f"{tempdir.name}/seeds.txt", "w") as f:
         for seed in details["seeds"]:
             f.write("{}\n".format(seed))
+
+    command = [
+        "java",
+        "-jar",
+        f"{_config['api.directories.scripts']}/MultiSteinerBackend/out/artifacts/MultiSteinerBackend_jar/MultiSteinerBackend.jar",
+        "-hp",
+        f"{details['hub_penalty']}",
+    ]
+
+    if details["multiple"] is True:
+        command += ["-m"]
+
+    command += ["-mi", f"{details['maxit']}"]
+    command += ["-nw", network_file]
+    command += ["-s", f"{tempdir.name}/seeds.txt"]
+    command += ["-t", f"{details['trees']}"]
+    command += ["-oe", f"{_MUST_DIR.absolute()}/{details['uid']}_edges.txt"]
+    command += ["-on", f"{_MUST_DIR.absolute()}/{details['uid']}_nodes.txt"]
+
+    res = _subprocess.call(command)
+    if res != 0:
+        with _MUST_COLL_LOCK:
+            _MUST_COLL.update_one(
+                {"uid": uid},
+                {
+                    "$set": {
+                        "status": "failed",
+                        "error": f"MuST exited with return code {res} -- please check your inputs, and contact API developer if issues persist.",
+                    }
+                },
+            )
+        return
+
+    results = {}
+    seeds_in_network = set(details["seeds"])
+    nodes_in_interation_network = set()
+
+    with open(f"{tempdir.name}/network.tsv", "r") as f:
+        for line in f:
+            nodes_in_interation_network.update(line.strip().split("\t"))
+    seeds_in_network = seeds_in_network.intersection(nodes_in_interation_network)
+
+    results["seeds_in_network"] = sorted(seeds_in_network)
+    results["edges"] = []
+    results["nodes"] = []
+
+    with open(f"{_MUST_DIR.absolute()}/{details['uid']}_edges.txt", "r") as f:
+        reader = _DictReader(f, delimiter="\t")
+        for row in reader:
+            results["edges"].append(row)
+
+    with open(f"{_MUST_DIR.absolute()}/{details['uid']}_nodes.txt", "r") as f:
+        reader = _DictReader(f, delimiter="\t")
+        for row in reader:
+            results["nodes"].append(row)
+
+    tempdir.cleanup()
+
+    with _MUST_COLL_LOCK:
+        _MUST_COLL.update_one({"uid": uid}, {"$set": {"status": "comleted", "results": results}})
