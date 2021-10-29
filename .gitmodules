@@ -1,0 +1,3 @@
+[submodule "scripts/MultiSteinerBackend"]
+	path = scripts/MultiSteinerBackend
+	url = git@github.com:repotrial/MultiSteinerBackend.git
