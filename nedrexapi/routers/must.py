@@ -155,7 +155,7 @@ async def must_submit(background_tasks: _BackgroundTasks, mr: MustRequest = _DEF
     return uid
 
 
-@router.get("/status", summary="MuST Submit")
+@router.get("/status", summary="MuST Status")
 def must_status(uid: str):
     """
     Returns the details of the MuST job with the given `uid`, including the original query parameters and the status
