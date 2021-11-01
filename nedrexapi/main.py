@@ -11,6 +11,7 @@ from nedrexapi.routers import (
     trustrank as _trustrank,
     diamond as _diamond,
     must as _must,
+    closeness as _closeness,
 )
 
 app = FastAPI(
@@ -38,3 +39,4 @@ app.include_router(_bicon.router, prefix="/bicon", tags=["BiCoN"])
 app.include_router(_static.router, prefix="/static", tags=["Static"])
 app.include_router(_diamond.router, prefix="/diamond", tags=["DIAMOnD"])
 app.include_router(_trustrank.router, prefix="/trustrank", tags=["TrustRank"])
+app.include_router(_closeness.router, prefix="/closeness", tags=["Closeness"])
