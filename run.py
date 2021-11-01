@@ -15,12 +15,7 @@ APP_STRING = "nedrexapi.main:app"
 
 def run():
     _LOGGING_CONFIG["formatters"]["default"]["fmt"] = "%(asctime)s [%(name)s] %(levelprefix)s %(message)s"
-    _uvicorn.run(
-        APP_STRING,
-        port=config["api.port"],
-        reload=True,
-        host=config["api.host"],
-    )
+    _uvicorn.run(APP_STRING, port=config["api.port"], reload=True, host=config["api.host"])
 
 
 if __name__ == "__main__":

@@ -115,11 +115,7 @@ def get_attribute_values(t: str, attribute: str, format: str):
             ]
         except KeyError:
             results = [
-                {
-                    "memberOne": i["memberOne"],
-                    "memberTwo": i["memberTwo"],
-                    attribute: i.get(attribute),
-                }
+                {"memberOne": i["memberOne"], "memberTwo": i["memberTwo"], attribute: i.get(attribute)}
                 for i in MongoInstance.DB()[t].find()
             ]
     else:
@@ -180,11 +176,7 @@ def get_node_attribute_values(t: str, format: str, ar: AttributeRequest = DEFAUL
                         "capped": False,
                         "nindexes": 3,
                         "totalIndexSize": 557056,
-                        "indexSizes": {
-                            "_id_": 167936,
-                            "primaryDomainId_1": 278528,
-                            "_cls_1": 110592,
-                        },
+                        "indexSizes": {"_id_": 167936, "primaryDomainId_1": 278528, "_cls_1": 110592},
                         "ok": 1.0,
                     }
                 }

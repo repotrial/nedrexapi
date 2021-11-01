@@ -1,3 +1,6 @@
 [submodule "scripts/MultiSteinerBackend"]
 	path = scripts/MultiSteinerBackend
 	url = git@github.com:repotrial/MultiSteinerBackend.git
+[submodule "scripts/nedrex_validation"]
+	path = scripts/nedrex_validation
+	url = git@github.com:repotrial/nedrex_validation.git

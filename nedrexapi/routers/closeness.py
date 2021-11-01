@@ -7,7 +7,7 @@ from multiprocessing import Lock as _Lock
 from pathlib import Path as _Path
 from uuid import uuid4 as _uuid4
 
-import networkx as _nx
+import networkx as _nx  # type: ignore
 from fastapi import (
     APIRouter as _APIRouter,
     BackgroundTasks as _BackgroundTasks,
@@ -15,7 +15,7 @@ from fastapi import (
     Response as _Response,
 )
 from pydantic import BaseModel as _BaseModel, Field as _Field
-from pymongo import MongoClient as _MongoClient
+from pymongo import MongoClient as _MongoClient  # type: ignore
 
 from nedrexapi.config import config as _config
 
@@ -34,14 +34,16 @@ class ClosenessRequest(_BaseModel):
     seeds: list[str] = _Field(
         None,
         title="Seeds to use for closeness",
-        description="Protein seeds to use for closeness; seeds should be UniProt accessions (optionally prefixed with `uniprot.`)",
+        description="Protein seeds to use for closeness; seeds should be UniProt accessions (optionally prefixed with "
+        "`uniprot.`)",
     )
     only_direct_drugs: bool = _Field(None)
     only_approved_drugs: bool = _Field(None)
     N: int = _Field(
         None,
         title="Determines the number of candidates to return and store",
-        descriptions="After ordering (descendin) by score, candidate drugs with a score >= the Nth drug's score are stored. Default: `None`",
+        descriptions="After ordering (descending) by score, candidate drugs with a score >= the Nth drug's score are "
+        "stored. Default: `None`",
     )
 
     class Config:
@@ -84,7 +86,8 @@ async def closeness_submit(background_tasks: _BackgroundTasks, cr: ClosenessRequ
 @router.get("/status")
 def closeness_status(uid: str):
     """
-    Returns the details of the closeness job with the given `uid`, including the original query parameters and the status of the build (`submitted`, `building`, `failed`, or `completed`).
+    Returns the details of the closeness job with the given `uid`, including the original query parameters and the
+    status of the build (`submitted`, `building`, `failed`, or `completed`).
     If the build fails, then these details will contain the error message.
     """
     query = {"uid": uid}

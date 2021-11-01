@@ -9,9 +9,9 @@ from pathlib import Path as _Path
 from uuid import uuid4 as _uuid4
 
 from fastapi import APIRouter as _APIRouter, BackgroundTasks as _BackgroundTasks, HTTPException as _HTTPException
-from neo4j import GraphDatabase as _GraphDatabase
+from neo4j import GraphDatabase as _GraphDatabase  # type: ignore
 from pydantic import BaseModel as _BaseModel, Field as _Field
-from pymongo import MongoClient as _MongoClient
+from pymongo import MongoClient as _MongoClient  # type: ignore
 
 from nedrexapi.config import config as _config
 
@@ -158,7 +158,8 @@ async def must_submit(background_tasks: _BackgroundTasks, mr: MustRequest = _DEF
 @router.get("/status", summary="MuST Submit")
 def must_status(uid: str):
     """
-    Returns the details of the MuST job with the given `uid`, including the original query parameters and the status of the job (`submitted`, `running`, `failed`, or `completed`).
+    Returns the details of the MuST job with the given `uid`, including the original query parameters and the status
+    of the job (`submitted`, `running`, `failed`, or `completed`).
     If the job fails, then these details will contain the error message.
     """
     query = {"uid": uid}
@@ -187,10 +188,7 @@ def run_must(uid):
 
     tempdir = _tempfile.TemporaryDirectory()
 
-    tup = (
-        details["seed_type"],
-        details["network"],
-    )
+    tup = (details["seed_type"], details["network"])
     query = QUERY_MAP.get(tup)
     if not query:
         raise Exception(
@@ -208,7 +206,8 @@ def run_must(uid):
     command = [
         "java",
         "-jar",
-        f"{_config['api.directories.scripts']}/MultiSteinerBackend/out/artifacts/MultiSteinerBackend_jar/MultiSteinerBackend.jar",
+        f"{_config['api.directories.scripts']}/MultiSteinerBackend/out/artifacts/MultiSteinerBackend_jar/"
+        "MultiSteinerBackend.jar",
         "-hp",
         f"{details['hub_penalty']}",
     ]
@@ -231,7 +230,8 @@ def run_must(uid):
                 {
                     "$set": {
                         "status": "failed",
-                        "error": f"MuST exited with return code {res} -- please check your inputs, and contact API developer if issues persist.",
+                        "error": f"MuST exited with return code {res} -- please check your inputs, and contact API "
+                        "developer if issues persist.",
                     }
                 },
             )

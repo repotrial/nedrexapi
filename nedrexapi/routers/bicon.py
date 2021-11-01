@@ -19,8 +19,8 @@ from fastapi import (
     UploadFile as _UploadFile,
     File as _File,
 )
-from neo4j import GraphDatabase as _GraphDatabase
-from pymongo import MongoClient as _MongoClient
+from neo4j import GraphDatabase as _GraphDatabase  # type: ignore
+from pymongo import MongoClient as _MongoClient  # type: ignore
 
 from nedrexapi.config import config as _config
 
@@ -79,7 +79,8 @@ async def bicon_submit(
     """
     Route used to submit a BiCoN job.
     BiCoN is an algorithm for network-constrained biclustering of patients and omics data.
-    For more information on BiCoN, please see the following publication by Lazareva *et al.*: [BiCoN: Network-constrained biclustering of patients and omics data](https://doi.org/10.1093/bioinformatics/btaa1076)
+    For more information on BiCoN, please see
+    [this publication by Lazareva *et al.*](https://doi.org/10.1093/bioinformatics/btaa1076)
     """
     uid = f"{_uuid4()}"
     file_obj = expression_file.file
@@ -90,12 +91,7 @@ async def bicon_submit(
         sha256_hash.update(byte_block)
     file_obj.seek(0)
 
-    query = {
-        "sha256": sha256_hash.hexdigest(),
-        "lg_min": lg_min,
-        "lg_max": lg_max,
-        "network": network,
-    }
+    query = {"sha256": sha256_hash.hexdigest(), "lg_min": lg_min, "lg_max": lg_max, "network": network}
 
     with _BICON_COLL_LOCK:
         existing = _BICON_COLL.find_one(query)
@@ -139,10 +135,7 @@ def bicon_clustermap(uid: str):
     if not result:
         raise _HTTPException(status_code=404, detail=f"No BiCoN job with UID {uid}")
     if not result["status"] == "completed":
-        raise _HTTPException(
-            status_code=404,
-            detail=f"BiCoN job with UID {uid} does not have completed status",
-        )
+        raise _HTTPException(status_code=404, detail=f"BiCoN job with UID {uid} does not have completed status")
     with _zipfile.ZipFile(_BICON_DIR / (uid + ".zip"), "r") as f:
         x = f.open(f"{uid}/clustermap.png").read()
     return _Response(x, media_type="text/plain")
@@ -155,10 +148,7 @@ def bicon_download(uid: str):
     if not result:
         raise _HTTPException(status_code=404, detail=f"No BiCoN job with UID {uid}")
     if not result["status"] == "completed":
-        raise _HTTPException(
-            status_code=404,
-            detail=f"BiCoN job with UID {uid} does not have completed status",
-        )
+        raise _HTTPException(status_code=404, detail=f"BiCoN job with UID {uid} does not have completed status")
     return _Response((_BICON_DIR / (uid + ".zip")).open("rb").read(), media_type="text/plain")
 
 
@@ -223,7 +213,7 @@ def run_bicon(uid):
                 {
                     "$set": {
                         "status": "failed",
-                        "error": f"BiCoN process exited with exit code {p.returncode} -- please check your inputs, and contact API developer if issues persist.",
+                        "error": f"BiCoN process exited with exit code {p.returncode} -- please check your inputs",
                     }
                 },
             )
@@ -262,7 +252,7 @@ def run_bicon(uid):
                 {
                     "$set": {
                         "status": "failed",
-                        "error": f"Attempt to zip results exited with return code {res} -- please contact API developer if issues persist.",
+                        "error": f"Attempt to zip results exited with return code {res} -- contact API developer",
                     }
                 },
             )

@@ -6,7 +6,7 @@ from multiprocessing import Lock as _Lock
 from pathlib import Path as _Path
 from uuid import uuid4 as _uuid4
 
-import networkx as _nx
+import networkx as _nx  # type: ignore
 from fastapi import (
     APIRouter as _APIRouter,
     BackgroundTasks as _BackgroundTasks,
@@ -14,7 +14,7 @@ from fastapi import (
     Response as _Response,
 )
 from pydantic import BaseModel as _BaseModel, Field as _Field
-from pymongo import MongoClient as _MongoClient
+from pymongo import MongoClient as _MongoClient  # type: ignore
 
 from nedrexapi.config import config as _config
 from nedrexapi.db import MongoInstance
@@ -89,33 +89,28 @@ class BuildRequest(_BaseModel):
     edges: list[str] = _Field(
         None,
         title="Edge types to include in the graph",
-        description="Default: `['disorder_is_subtype_of_disorder', 'drug_has_indication', 'drug_has_target', 'gene_associated_with_disorder', 'protein_encoded_by', 'protein_interacts_with_protein']`",
+        description="Default: `['disorder_is_subtype_of_disorder', 'drug_has_indication', 'drug_has_target', "
+        "'gene_associated_with_disorder', 'protein_encoded_by', 'protein_interacts_with_protein']`",
     )
     ppi_evidence: list[str] = _Field(None, title="PPI evidence types", description="Default: `['exp']`")
     ppi_self_loops: bool = _Field(
-        None,
-        title="PPI self-loops",
-        description="Filter on in/ex-cluding PPI self-loops (default: `False`)",
+        None, title="PPI self-loops", description="Filter on in/ex-cluding PPI self-loops (default: `False`)"
     )
-    taxid: list[int] = _Field(
-        None,
-        title="Taxonomy IDs",
-        description="Filters proteins by TaxIDs (default: `[9606]`)",
-    )
+    taxid: list[int] = _Field(None, title="Taxonomy IDs", description="Filters proteins by TaxIDs (default: `[9606]`)")
     drug_groups: list[str] = _Field(
-        None,
-        title="Drug groups",
-        description="Filters drugs by drug groups (default: `['approved']`",
+        None, title="Drug groups", description="Filters drugs by drug groups (default: `['approved']`"
     )
     concise: bool = _Field(
         None,
         title="Concise",
-        description="Setting the concise flag to `True` will only give nodes a primaryDomainId and type, and edges a type. Default: `True`",
+        description="Setting the concise flag to `True` will only give nodes a primaryDomainId and type, and edges a "
+        "type. Default: `True`",
     )
     include_omim: bool = _Field(
         None,
         title="Include OMIM gene-disorder associations",
-        description="Setting the include_omim flag to `True` will include gene-disorder associations from OMIM. Default: `True`",
+        description="Setting the include_omim flag to `True` will include gene-disorder associations from OMIM. "
+        "Default: `True`",
     )
     disgenet_threshold: float = _Field(
         None,
@@ -125,7 +120,8 @@ class BuildRequest(_BaseModel):
     use_omim_ids: bool = _Field(
         None,
         title="Prefer OMIM IDs on disorders",
-        description="Replaces the primaryDomainId on disorder nodes with an OMIM ID where an unambiguous OMIM ID exists. Default: `False`",
+        description="Replaces the primaryDomainId on disorder nodes with an OMIM ID where an unambiguous OMIM ID "
+        "exists. Default: `False`",
     )
     split_drug_types: bool = _Field(
         None,
@@ -152,14 +148,21 @@ async def graph_builder(background_tasks: _BackgroundTasks, build_request: Build
     """
     Returns the UID for the graph build with user-given parameters, and additionally sets a build running if
     the build does not exist. The graph is built according to the following rules:
-    * Nodes are added first, with proteins only added if the taxid recorded is in `taxid` query value, and drugs only added if the drug group is in the `drug_group` query value.
-    * Edges are then added, with an edge only added if the nodes it connets are both in the database. Additionally, protein-protein interactions (PPIs) can be filtered by PPI evidence type using the `?ppi_evidence` query parameter. By default, self-loop PPIs are not added, but this can be changed by setting the `ppi_self_loops` query value to `true`.
-    Acceptable values for `nodes` and `edges` can be seen by querying `/list_node_collections` and `/list_edge_collections` respectively. For the remaining query parameters, acceptable values are as follows:
+    * Nodes are added first, with proteins only added if the taxid recorded is in `taxid` query value, and drugs only
+    added if the drug group is in the `drug_group` query value.
+    * Edges are then added, with an edge only added if the nodes it connets are both in the database. Additionally,
+    protein-protein interactions (PPIs) can be filtered by PPI evidence type using the `?ppi_evidence`
+    query parameter. By default, self-loop PPIs are not added, but this can be changed by setting the `ppi_self_loops`
+    query value to `true`.
+
+    Acceptable values for `nodes` and `edges` can be seen by querying `/list_node_collections` and
+    `/list_edge_collections` respectively. For the remaining query parameters, acceptable values are as follows:
 
         // 9606 is Homo sapiens, -1 is used for "not recorded in NeDRexDB".
         taxid = [-1, 9606]
         // Default is just approved.
-        drug_group = ['approved', 'experimental', 'illicit', 'investigational', 'nutraceutical', 'vet_approved', 'withdrawn']
+        drug_group = ['approved', 'experimental', 'illicit', 'investigational', 'nutraceutical', 'vet_approved',
+            'withdrawn']
         // exp = experimental, pred = predicted, orth = orthology
         ppi_evidence = ['exp', 'ortho', 'pred']
     """
@@ -272,7 +275,8 @@ async def graph_builder(background_tasks: _BackgroundTasks, build_request: Build
 def graph_details(uid: str):
     """
     Returns the details of the graph with the given UID,
-    including the original query parameters and the status of the build (`submitted`, `building`, `failed`, or `completed`).
+    including the original query parameters and the status of the build (`submitted`, `building`, `failed`, or
+    `completed`).
     If the build fails, then these details will contain the error message.
     """
     data = _GRAPH_COLL.find_one({"uid": uid})
@@ -294,10 +298,7 @@ def graph_download(uid: str):
     if data and data["status"] == "completed":
         return _Response((_GRAPH_DIR / f"{uid}.graphml").open("r").read(), media_type="text/plain")
     elif data and data["status"] != "completed":
-        raise _HTTPException(
-            status_code=404,
-            detail=f"Graph with UID {uid!r} does not have completed status.",
-        )
+        raise _HTTPException(status_code=404, detail=f"Graph with UID {uid!r} does not have completed status.")
     # If data doesn't exist, means that the graph with the UID supplied does not exist.
     elif not data:
         raise _HTTPException(status_code=404, detail=f"No graph with UID {uid!r} is recorded.")
@@ -307,7 +308,8 @@ def graph_download(uid: str):
 def graph_download_ii(fname: str, uid: str):
     """
     Returns the graph with the given `uid` in GraphML format.
-    The `fname` path parameter can be anything a user desires, and is used simply to allow a user to download the graph with their desired filename.
+    The `fname` path parameter can be anything a user desires, and is used simply to allow a user to download the
+    graph with their desired filename.
     """
     data = _GRAPH_COLL.find_one({"uid": uid})
 
@@ -315,10 +317,7 @@ def graph_download_ii(fname: str, uid: str):
         return _Response((_GRAPH_DIR / f"{uid}.graphml").open("r").read(), media_type="text/plain")
 
     elif data and data["status"] != "completed":
-        raise _HTTPException(
-            status_code=404,
-            detail=f"Graph with UID {uid!r} does not have completed status.",
-        )
+        raise _HTTPException(status_code=404, detail=f"Graph with UID {uid!r} does not have completed status.")
     # If data doesn't exist, means that the graph with the UID supplied does not exist.
     elif not data:
         raise _HTTPException(status_code=404, detail=f"No graph with UID {uid!r} is recorded.")
@@ -397,14 +396,7 @@ def graph_constructor(query):
                 m1 = doc["memberOne"]
                 m2 = doc["memberTwo"]
                 if query["concise"]:
-                    g.add_edge(
-                        m1,
-                        m2,
-                        reversible=True,
-                        type=doc["type"],
-                        memberOne=m1,
-                        memberTwo=m2,
-                    )
+                    g.add_edge(m1, m2, reversible=True, type=doc["type"], memberOne=m1, memberTwo=m2)
                 else:
                     for attribute in ("_id", "created", "updated"):
                         doc.pop(attribute)
@@ -416,14 +408,7 @@ def graph_constructor(query):
                 t = doc["targetDomainId"]
 
                 if query["concise"]:
-                    g.add_edge(
-                        s,
-                        t,
-                        reversible=False,
-                        sourceDomainId=s,
-                        targetDomainId=t,
-                        type=doc["type"],
-                    )
+                    g.add_edge(s, t, reversible=False, sourceDomainId=s, targetDomainId=t, type=doc["type"])
                 else:
                     for attribute in ("_id", "created", "updated"):
                         doc.pop(attribute)
@@ -462,7 +447,8 @@ def graph_constructor(query):
     #  We don't know what types the nodes are.
 
     # Solution:
-    # Iterate over all collections (quick), see if the node / edge is in the graph (quick), and decorate with attributes
+    # Iterate over all collections (quick), see if the node / edge is in the graph (quick), and decorate with
+    # attributes
 
     updates = {}
     node_ids = set(g.nodes())
@@ -493,31 +479,11 @@ def graph_constructor(query):
                         "indication",
                     ]
                 elif doc["type"] == "Disorder":
-                    attrs = [
-                        "primaryDomainId",
-                        "domainIds",
-                        "displayName",
-                        "synonyms",
-                        "icd10",
-                        "type",
-                    ]
+                    attrs = ["primaryDomainId", "domainIds", "displayName", "synonyms", "icd10", "type"]
                 elif doc["type"] == "Gene":
-                    attrs = [
-                        "primaryDomainId",
-                        "displayName",
-                        "synonyms",
-                        "approvedSymbol",
-                        "symbols",
-                        "type",
-                    ]
+                    attrs = ["primaryDomainId", "displayName", "synonyms", "approvedSymbol", "symbols", "type"]
                 elif doc["type"] == "Protein":
-                    attrs = [
-                        "primaryDomainId",
-                        "displayName",
-                        "geneName",
-                        "taxid",
-                        "type",
-                    ]
+                    attrs = ["primaryDomainId", "displayName", "geneName", "taxid", "type"]
                 elif doc["type"] == "Signature":
                     attrs = ["primaryDomainId", "type"]
                 elif doc["type"] == "Phenotype":

@@ -77,8 +77,8 @@ def get_drugs_targetting_gene_products(sr: GeneSeededRequest):
     gene_products = get_encoded_proteins(sr)
     all_proteins = list(_chain(*gene_products.values()))
 
-    sr = ProteinSeededRequest(proteins=all_proteins)
-    drugs_targetting_proteins = get_drugs_targetting_proteins(sr)
+    protein_seed_request = ProteinSeededRequest(proteins=all_proteins)
+    drugs_targetting_proteins = get_drugs_targetting_proteins(protein_seed_request)
 
     results: dict[str, list[str]] = _defaultdict(list)
     for gene, encoded_proteins in gene_products.items():

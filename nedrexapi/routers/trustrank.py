@@ -7,7 +7,7 @@ from multiprocessing import Lock as _Lock
 from pathlib import Path as _Path
 from uuid import uuid4 as _uuid4
 
-import networkx as _nx
+import networkx as _nx  # type: ignore
 from fastapi import (
     APIRouter as _APIRouter,
     BackgroundTasks as _BackgroundTasks,
@@ -15,7 +15,7 @@ from fastapi import (
     Response as _Response,
 )
 from pydantic import BaseModel as _BaseModel, Field as _Field
-from pymongo import MongoClient as _MongoClient
+from pymongo import MongoClient as _MongoClient  # type: ignore
 
 from nedrexapi.config import config as _config
 
@@ -35,17 +35,21 @@ class TrustRankRequest(_BaseModel):
     seeds: list[str] = _Field(
         None,
         title="Seeds to use for TrustRank",
-        description="Protein seeds to use for trustrank; seeds should be UniProt accessions (optionally prefixed with 'uniprot.'",
+        description="Protein seeds to use for trustrank; seeds should be UniProt accessions (optionally prefixed with "
+        "'uniprot.'",
     )
     damping_factor: float = _Field(
-        None, title="The damping factor to use for TrustRank", description="A float in the range 0 - 1. Default: `0.85`"
+        None,
+        title="The damping factor to use for TrustRank",
+        description="A float in the range 0 - 1. Default: " "`0.85`",
     )
     only_direct_drugs: bool = _Field(None, title="", description="")
     only_approved_drugs: bool = _Field(None, title="", description="")
     N: int = _Field(
         None,
         title="The number of candidates to return and store",
-        description="After ordering (descending) by sore, candidate drugs with a score >= the Nth drug's score are returned. Default: `None`",
+        description="After ordering (descending) by sore, candidate drugs with a score >= the Nth drug's score are "
+        "returned. Default: `None`",
     )
 
     class Config:
@@ -58,7 +62,7 @@ DEFAULT_TRUSTRANK_REQUEST = TrustRankRequest()
 @router.post("/submit")
 async def trustrank_submit(background_tasks: _BackgroundTasks, tr: TrustRankRequest = DEFAULT_TRUSTRANK_REQUEST):
     if not tr.seeds:
-        raise _HTTPException(status_code=404, details="No seeds submitted")
+        raise _HTTPException(status_code=404, detail="No seeds submitted")
 
     if tr.damping_factor is None:
         tr.damping_factor = 0.85
@@ -92,7 +96,8 @@ async def trustrank_submit(background_tasks: _BackgroundTasks, tr: TrustRankRequ
 @router.get("/status")
 def trustrank_status(uid: str):
     """
-    Returns the details of the trustrank job with the given `uid`, including the original query parameters and the status of the build (`submitted`, `building`, `failed`, or `completed`).
+    Returns the details of the trustrank job with the given `uid`, including the original query parameters and the
+    status of the build (`submitted`, `building`, `failed`, or `completed`).
     If the build fails, then these details will contain the error message.
     """
     query = {"uid": uid}
@@ -140,7 +145,7 @@ def run_trustrank(uid):
     command = [
         f"{_config['api.directories.scripts']}/run_trustrank.py",
         "-n",
-        f"{_config['api.directories.static']}/PPDr-for-ranking.gt",
+        f"{_config['api.directories.static']}/PPDr-for-ranking.graphml",
         "-s",
         f"{tmp.name}",
         "-d",

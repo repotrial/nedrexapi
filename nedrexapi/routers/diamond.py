@@ -6,10 +6,11 @@ from csv import DictReader as _DictReader, reader as _reader
 from functools import lru_cache as _lru_cache
 from itertools import combinations as _combinations, product as _product
 from multiprocessing import Lock as _Lock
+from typing import Any as _Any
 from pathlib import Path as _Path
 from uuid import uuid4 as _uuid4
 
-from neo4j import GraphDatabase as _GraphDatabase
+from neo4j import GraphDatabase as _GraphDatabase  # type: ignore
 from fastapi import (
     APIRouter as _APIRouter,
     BackgroundTasks as _BackgroundTasks,
@@ -17,7 +18,7 @@ from fastapi import (
     Response as _Response,
 )
 from pydantic import BaseModel as _BaseModel, Field as _Field
-from pymongo import MongoClient as _MongoClient
+from pymongo import MongoClient as _MongoClient  # type: ignore
 
 from nedrexapi.config import config as _config
 
@@ -78,8 +79,8 @@ class DiamondRequest(_BaseModel):
         None,
         title="Edges to return in the results",
         description="Option affecting which edges are returned in the results. "
-        "Options are `all`, which returns edges in the GGI/PPI between nodes in the DIAMOnD module, and `limited`, which only returns edges between seeds and new nodes. "
-        "Default: `all`",
+        "Options are `all`, which returns edges in the GGI/PPI between nodes in the DIAMOnD module, and `limited`, "
+        "which only returns edges between seeds and new nodes. Default: `all`",
     )
 
     class Config:
@@ -130,13 +131,17 @@ async def diamond_submit(background_tasks: _BackgroundTasks, dr: DiamondRequest 
       - `alpha` - a parameter used to give weight to the seeds
       - `network` - a parameter used to identify the NeDRexDB-based gene-gene network to use
 
-    At present, two values are supported for `network` -- `DEFAULT`, where two genes are linked if they encode proteins with an
-    experimentally asserted PPI, and `SHARED_DISORDER`, where two genes are linked if they are both asserted to be involved in the same disorder.
-    Seeds, `seeds`, should be Entrez gene IDs (without any database as part of the identifier -- i.e., `2717`, not `entrez.2717`).
+    At present, two values are supported for `network` -- `DEFAULT`, where two genes are linked if they encode
+    proteins with an experimentally asserted PPI, and `SHARED_DISORDER`, where two genes are linked if they are both
+    asserted to be involved in the same disorder. Seeds, `seeds`, should be Entrez gene IDs (without any database as
+    part of the identifier -- i.e., `2717`, not `entrez.2717`).
 
-    A successfully submitted request will return a UID which can be used in other routes to (1) check the status of the DIAMOnD run and (2) download the results.
+    A successfully submitted request will return a UID which can be used in other routes to (1) check the status of
+    the DIAMOnD run and (2) download the results.
 
-    For more information on DIAMOnD, please see the following paper by Ghiassian *et al.*: [A DIseAse MOdule Detection (DIAMOnD) Algorithm Derived from a Systematic Analysis of Connectivity Patterns of Disease Proteins in the Human Interactome](https://doi.org/10.1371/journal.pcbi.1004120)
+    For more information on DIAMOnD, please see the following paper by Ghiassian *et al.*: [A DIseAse MOdule Detection
+    (DIAMOnD) Algorithm Derived from a Systematic Analysis of Connectivity Patterns of Disease Proteins in the Human
+    Interactome](https://doi.org/10.1371/journal.pcbi.1004120)
     """
     if not dr.seeds:
         raise _HTTPException(status_code=404, detail="No seeds submitted")
@@ -178,7 +183,8 @@ async def diamond_submit(background_tasks: _BackgroundTasks, dr: DiamondRequest 
 @router.get("/status", summary="DIAMOnD Status")
 def diamond_status(uid: str):
     """
-    Returns the details of the DIAMOnD job with the given `uid`, including the original query parameters and the status of the build (`submitted`, `running`, `failed`, or `completed`).
+    Returns the details of the DIAMOnD job with the given `uid`, including the original query parameters and the
+    status of the build (`submitted`, `running`, `failed`, or `completed`).
     If the build fails, then these details will contain the error message.
     """
     query = {"uid": uid}
@@ -259,23 +265,24 @@ def run_diamond(uid: str):
                 {
                     "$set": {
                         "status": "failed",
-                        "error": f"DIAMOnD exited with return code {res} -- please check your inputs and contact API developer if issues persist.",
+                        "error": f"DIAMOnD exited with return code {res} -- please check your inputs and contact API "
+                        "developer if issues persist.",
                     }
                 },
             )
         return
 
     # Extract results
-    results = {"diamond_nodes": [], "edges": []}
+    results: dict[str, _Any] = {"diamond_nodes": [], "edges": []}
     diamond_nodes = set()
 
     with open(f"{tempdir.name}/results.txt", "r") as f:
-        reader = _DictReader(f, delimiter="\t")
-        for row in reader:
-            row = dict(row)
-            row["rank"] = row.pop("#rank")
-            results["diamond_nodes"].append(row)
-            diamond_nodes.add(row["DIAMOnD_node"])
+        result_reader = _DictReader(f, delimiter="\t")
+        for result in result_reader:
+            result = dict(result)
+            result["rank"] = result.pop("#rank")
+            results["diamond_nodes"].append(result)
+            diamond_nodes.add(result["DIAMOnD_node"])
 
     seeds = set(details["seeds"])
     seeds_in_network = set()
@@ -288,8 +295,8 @@ def run_diamond(uid: str):
         possible_edges = {tuple(sorted(i)) for i in _product(diamond_nodes, seeds)}
 
     with open(f"{tempdir.name}/network.tsv") as f:
-        reader = _reader(f, delimiter="\t")
-        for row in reader:
+        network_reader = _reader(f, delimiter="\t")
+        for row in network_reader:
             sorted_row = tuple(sorted(row))
             if sorted_row in possible_edges:
                 results["edges"].append(sorted_row)

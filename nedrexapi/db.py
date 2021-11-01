@@ -13,14 +13,7 @@ def create_directories():
     data_dir = _Path(_config["api.directories.data"])
     data_dir.mkdir(exist_ok=True, parents=True)
 
-    for subdir in (
-        "bicon",
-        "closeness",
-        "diamond",
-        "graphs",
-        "must",
-        "trustrank",
-    ):
+    for subdir in ("bicon", "closeness", "diamond", "graphs", "must", "trustrank"):
         (data_dir / subdir).mkdir(exist_ok=True)
 
 

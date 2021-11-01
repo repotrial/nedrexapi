@@ -34,6 +34,7 @@ class Metadata:
 
     @classmethod
     def increment_db_version(cls, part: VersionPart):
+        assert cls.metadata is not None
         version = cls.metadata["version"]
         parts = [int(i) for i in version.split(".")]
 

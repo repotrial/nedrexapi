@@ -1,6 +1,6 @@
 from collections import defaultdict as _defaultdict
 
-import networkx as _nx
+import networkx as _nx  # type: ignore
 from cachetools import LRUCache as _LRUCache, cached as _cached  # type: ignore
 from fastapi import APIRouter as _APIRouter, Query as _Query
 
