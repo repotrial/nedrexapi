@@ -11,16 +11,14 @@ from uuid import uuid4 as _uuid4
 from fastapi import APIRouter as _APIRouter, BackgroundTasks as _BackgroundTasks, HTTPException as _HTTPException
 from neo4j import GraphDatabase as _GraphDatabase  # type: ignore
 from pydantic import BaseModel as _BaseModel, Field as _Field
-from pymongo import MongoClient as _MongoClient  # type: ignore
 
 from nedrexapi.config import config as _config
+from nedrexapi.common import get_api_collection as _get_api_collection
 
-_MONGO_CLIENT = _MongoClient(port=_config["api.mongo_port"])
-_MONGO_DB = _MONGO_CLIENT[_config["api.mongo_db"]]
 
 _NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_config['db.dev.neo4j_bolt_port']}")
 
-_MUST_COLL = _MONGO_DB["must_"]
+_MUST_COLL = _get_api_collection("must_")
 _MUST_DIR = _Path(_config["api.directories.data"]) / "must_"
 _MUST_DIR.mkdir(parents=True, exist_ok=True)
 _MUST_COLL_LOCK = _Lock()

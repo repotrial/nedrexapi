@@ -18,16 +18,13 @@ from fastapi import (
     Response as _Response,
 )
 from pydantic import BaseModel as _BaseModel, Field as _Field
-from pymongo import MongoClient as _MongoClient  # type: ignore
 
 from nedrexapi.config import config as _config
-
-_MONGO_CLIENT = _MongoClient(port=_config["api.mongo_port"])
-_MONGO_DB = _MONGO_CLIENT[_config["api.mongo_db"]]
+from nedrexapi.common import get_api_collection as _get_api_collection
 
 _NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_config['db.dev.neo4j_bolt_port']}")
 
-_DIAMOND_COLL = _MONGO_DB["diamond_"]
+_DIAMOND_COLL = _get_api_collection("diamond_")
 _DIAMOND_DIR = _Path(_config["api.directories.data"]) / "diamond_"
 _DIAMOND_DIR.mkdir(parents=True, exist_ok=True)
 _DIAMOND_COLL_LOCK = _Lock()

@@ -15,14 +15,12 @@ from fastapi import (
     Response as _Response,
 )
 from pydantic import BaseModel as _BaseModel, Field as _Field
-from pymongo import MongoClient as _MongoClient  # type: ignore
 
 from nedrexapi.config import config as _config
+from nedrexapi.common import get_api_collection as _get_api_collection
 
-_MONGO_CLIENT = _MongoClient(port=_config["api.mongo_port"])
-_MONGO_DB = _MONGO_CLIENT[_config["api.mongo_db"]]
 
-_CLOSENESS_COLL = _MONGO_DB["closeness_"]
+_CLOSENESS_COLL = _get_api_collection("closeness_")
 _CLOSENESS_DIR = _Path(_config["api.directories.data"]) / "closeness_"
 _CLOSENESS_DIR.mkdir(parents=True, exist_ok=True)
 _CLOSENESS_COLL_LOCK = _Lock()

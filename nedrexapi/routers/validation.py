@@ -9,19 +9,17 @@ from uuid import uuid4 as _uuid4
 
 from fastapi import APIRouter as _APIRouter, BackgroundTasks as _BackgroundTasks, HTTPException as _HTTPException
 from pydantic import BaseModel as _BaseModel, Field as _Field
-from pymongo import MongoClient  # type: ignore
 
 from nedrexapi.config import config as _config
+from nedrexapi.common import get_api_collection as _get_api_collection
 
 router = _APIRouter()
 
 _STATIC_DIR = _Path(_config["api.directories.static"])
 
-_MONGO_CLIENT = MongoClient(port=_config["api.mongo_port"])
-_MONGO_DB = _MONGO_CLIENT[_config["api.mongo_db"]]
-
-_VALIDATION_COLL = _MONGO_DB["validation_"]
+_VALIDATION_COLL = _get_api_collection("validation_")
 _VALIDATION_COLL_LOCK = _Lock()
+_VALIDATION_STATIC_FILE_LOCK = _Lock()
 
 
 @_contextmanager
@@ -99,8 +97,6 @@ DEFAULT_JOINT_VALIDATION_REQUEST = JointValidationRequest()
 def joint_validation_submit(
     background_tasks: _BackgroundTasks, jvr: JointValidationRequest = DEFAULT_JOINT_VALIDATION_REQUEST
 ):
-    generate_validation_static_files()
-
     # Check request parameters are correctly specified.
     if not jvr.test_drugs:
         raise _HTTPException(status_code=400, detail="test_drugs must be specified and cannot be empty")
@@ -157,6 +153,9 @@ def joint_validation_wrapper(uid: str):
 
 
 def joint_validation(uid):
+    with _VALIDATION_STATIC_FILE_LOCK:
+        generate_validation_static_files()
+
     details = _VALIDATION_COLL.find_one({"uid": uid})
     if not details:
         raise Exception(f"No validation task exists with the UID {uid!r}")
@@ -234,8 +233,6 @@ DEFAULT_MODULE_VALIDATION_REQUEST = ModuleValidationRequest()
 def module_validation_submit(
     background_tasks: _BackgroundTasks, mvr: ModuleValidationRequest = DEFAULT_MODULE_VALIDATION_REQUEST
 ):
-    generate_validation_static_files()
-
     # Check request parameters are correctly specified.
     if not mvr.true_drugs:
         raise _HTTPException(status_code=400, detail="true_drugs must be specified and cannot be empty")
@@ -288,6 +285,9 @@ def module_validation_wrapper(uid):
 
 
 def module_validation(uid: str):
+    with _VALIDATION_STATIC_FILE_LOCK:
+        generate_validation_static_files()
+
     details = _VALIDATION_COLL.find_one({"uid": uid})
     if not details:
         raise Exception(f"No validation task exists with the UID {uid!r}")
@@ -401,7 +401,8 @@ def drug_validation_wrapper(uid: str):
 
 
 def drug_validation(uid: str):
-    generate_validation_static_files()
+    with _VALIDATION_STATIC_FILE_LOCK:
+        generate_validation_static_files()
 
     details = _VALIDATION_COLL.find_one({"uid": uid})
     if not details:
