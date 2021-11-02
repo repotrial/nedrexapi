@@ -17,7 +17,10 @@ from fastapi import (
 from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.config import config as _config
-from nedrexapi.common import get_api_collection as _get_api_collection
+from nedrexapi.common import (
+    get_api_collection as _get_api_collection,
+    generate_ranking_static_files as _generate_ranking_static_files,
+)
 
 
 _CLOSENESS_COLL = _get_api_collection("closeness_")
@@ -118,6 +121,8 @@ def run_closeness_wrapper(uid: str):
 
 
 def run_closeness(uid):
+    _generate_ranking_static_files()
+
     with _CLOSENESS_COLL_LOCK:
         details = _CLOSENESS_COLL.find_one({"uid": uid})
         if not details:

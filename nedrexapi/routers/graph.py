@@ -134,7 +134,7 @@ _DEFAULT_BUILD_REQUEST = BuildRequest()
 
 
 @router.post(
-    "/graph_builder",
+    "/builder",
     responses={
         200: {"content": {"application/json": {"example": "d961c377-cbb3-417f-a4b0-cc1996ce6f51"}}},
         404: {"content": {"application/json": {"example": {"detail": "Invalid values for n: ['tissue']"}}}},
@@ -237,7 +237,7 @@ async def graph_builder(background_tasks: _BackgroundTasks, build_request: Build
 
 
 @router.get(
-    "/graph_details/{uid}",
+    "/details/{uid}",
     responses={
         200: {
             "content": {
@@ -285,7 +285,7 @@ def graph_details(uid: str):
     raise _HTTPException(status_code=404, detail=f"No graph with UID {uid!r} is recorded.")
 
 
-@router.get("/graph_download/{uid}.graphml", summary="Graph download")
+@router.get("/download/{uid}.graphml", summary="Graph download")
 def graph_download(uid: str):
     """
     Returns the graph with the given `uid` in GraphML format.
@@ -301,7 +301,7 @@ def graph_download(uid: str):
         raise _HTTPException(status_code=404, detail=f"No graph with UID {uid!r} is recorded.")
 
 
-@router.get("/graph_download_v2/{uid}/{fname}.graphml", summary="Graph download")
+@router.get("/download/{uid}/{fname}.graphml", summary="Graph download")
 def graph_download_ii(fname: str, uid: str):
     """
     Returns the graph with the given `uid` in GraphML format.

@@ -10,7 +10,7 @@ apiNetwork_path = "/home/james/nedrex/nedrex_api/static/"
 os.chdir(apiNetwork_path)
 # get the network containing protein-protein and protein-drug interactions with proper parameters via API
 base_url = "http://82.148.225.92:8022"
-submit_url = f"{base_url}/graph/graph_builder"
+submit_url = f"{base_url}/graph/builder"
 
 data = {
     "nodes": [],
@@ -34,7 +34,7 @@ print(f"UID for job: {gbuild.json()}")
 uid = gbuild.json()
 
 while True:
-    progress = requests.get(f"{base_url}/graph/graph_details/{uid}")
+    progress = requests.get(f"{base_url}/graph/details/{uid}")
     built = progress.json()["status"] == "completed"
     if built:
         break
@@ -42,7 +42,7 @@ while True:
     time.sleep(10)
 
 fname = "temp-PPDr"
-urlretrieve(f"{base_url}/graph/graph_download_v2/{uid}/{fname}.graphml", f"{fname}.graphml")
+urlretrieve(f"{base_url}/graph/download/{uid}/{fname}.graphml", f"{fname}.graphml")
 
 
 G = nx.read_graphml(f"{apiNetwork_path}{fname}.graphml")

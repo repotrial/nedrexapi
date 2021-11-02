@@ -13,7 +13,6 @@ def test_drug_based_validation():
         "DB00013",
         "DB00086",
         "DB00086",
-        "DB00320",
         "DB00569",
         "DB00682",
         "DB00682",
@@ -153,7 +152,6 @@ def test_module_based_validation():
         "drugbank.DB00158",
         "drugbank.DB00176",
         "drugbank.DB00206",
-        "drugbank.DB00323",
         "drugbank.DB00328",
         "drugbank.DB00363",
         "drugbank.DB00382",
@@ -520,7 +518,6 @@ def test_join_validation():
         "drugbank.DB00072",
         "drugbank.DB00201",
         "drugbank.DB00257",
-        "drugbank.DB00317",
         "drugbank.DB00342",
         "drugbank.DB00398",
         "drugbank.DB00477",
@@ -649,7 +646,48 @@ def test_join_validation():
     print(resp.status_code, resp.text)
 
 
+def test_closeness():
+    seeds = [
+        "A1A4Y4",
+        "O00571",
+        "O14965",
+        "O43683",
+        "O43707",
+        "O60674",
+        "O75051",
+        "O75179",
+        "O95150",
+        "O95256",
+        "O95996",
+        "O95999",
+        "P00533",
+        "P01023",
+        "P01137",
+        "P01375",
+        "P04150",
+        "P04626",
+        "P04629",
+        "P04792",
+    ]
+
+    only_approved_drugs = True
+    only_direct_drugs = True
+    n = 50
+
+    payload = {
+        "seeds": seeds,
+        "only_approved_drugs": only_approved_drugs,
+        "only_direct_drugs": only_direct_drugs,
+        "N": n,
+    }
+    url = f"{API_BASE}closeness/submit"
+
+    resp = requests.post(url, json=payload)
+    print(resp.status_code, resp.text)
+
+
 if __name__ == "__main__":
-    # test_drug_based_validation()
-    # test_module_based_validation()
+    test_drug_based_validation()
+    test_module_based_validation()
     test_join_validation()
+    test_closeness()
