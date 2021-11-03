@@ -1,6 +1,13 @@
 from fastapi import FastAPI
 
-from nedrexapi.routers import (
+from nedrexapi.db import MongoInstance, create_directories
+from nedrexapi.config import parse_config
+
+parse_config(".config.toml")
+MongoInstance.connect("dev")
+create_directories()
+
+from nedrexapi.routers import (  # noqa: E402
     bicon as _bicon,
     general as _general,
     disorder as _disorder,
@@ -13,7 +20,9 @@ from nedrexapi.routers import (
     must as _must,
     closeness as _closeness,
     validation as _validation,
+    admin as _admin,
 )
+
 
 app = FastAPI(
     title="NeDRexAPI",
@@ -42,3 +51,4 @@ app.include_router(_diamond.router, prefix="/diamond", tags=["DIAMOnD"])
 app.include_router(_trustrank.router, prefix="/trustrank", tags=["TrustRank"])
 app.include_router(_closeness.router, prefix="/closeness", tags=["Closeness"])
 app.include_router(_validation.router, prefix="/validation", tags=["Validation"])
+app.include_router(_admin.router, prefix="/admin", tags=["Admin"])

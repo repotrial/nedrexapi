@@ -229,7 +229,7 @@ async def graph_builder(background_tasks: _BackgroundTasks, build_request: Build
             query["uid"] = f"{_uuid4()}"
             _GRAPH_COLL.insert_one(query)
             uid = query["uid"]
-            background_tasks.add_task(graph_constructor_wrapper, query)
+            background_tasks.add_task(graph_constructor_wrapper, uid)
         else:
             uid = result["uid"]
 
@@ -320,17 +320,20 @@ def graph_download_ii(fname: str, uid: str):
         raise _HTTPException(status_code=404, detail=f"No graph with UID {uid!r} is recorded.")
 
 
-def graph_constructor_wrapper(query):
+def graph_constructor_wrapper(uid):
     try:
-        graph_constructor(query)
+        graph_constructor(uid)
     except Exception as E:
         with _GRAPH_COLL_LOCK:
-            _GRAPH_COLL.update_one({"uid": query["uid"]}, {"$set": {"status": "failed", "error": f"{E}"}})
+            _GRAPH_COLL.update_one({"uid": uid}, {"$set": {"status": "failed", "error": f"{E}"}})
         raise E
 
 
-def graph_constructor(query):
+def graph_constructor(uid):
     with _GRAPH_COLL_LOCK:
+        query = _GRAPH_COLL.find_one({"uid": uid})
+        if not query:
+            raise Exception()
         _GRAPH_COLL.update_one({"uid": query["uid"]}, {"$set": {"status": "building"}})
 
     g = _nx.DiGraph()
@@ -508,7 +511,6 @@ def graph_constructor(query):
     to_remove = set()
 
     for node, data in g.nodes(data=True):
-        print(node, data)
         # If the type of the node is one of the requested types, do nothing.
         if data["type"] in nodes_requested:
             continue

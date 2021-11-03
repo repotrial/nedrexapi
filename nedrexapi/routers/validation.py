@@ -1,7 +1,6 @@
 import tempfile as _tempfile
 import subprocess as _subprocess
 from contextlib import contextmanager as _contextmanager
-from functools import lru_cache as _lru_cache
 from multiprocessing import Lock as _Lock
 from pathlib import Path as _Path
 from typing import Any as _Any
@@ -11,7 +10,8 @@ from fastapi import APIRouter as _APIRouter, BackgroundTasks as _BackgroundTasks
 from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.config import config as _config
-from nedrexapi.common import get_api_collection as _get_api_collection
+from nedrexapi.common import get_api_collection as _get_api_collection, generate_validation_static_files
+from nedrexapi.logger import logger
 
 router = _APIRouter()
 
@@ -19,7 +19,6 @@ _STATIC_DIR = _Path(_config["api.directories.static"])
 
 _VALIDATION_COLL = _get_api_collection("validation_")
 _VALIDATION_COLL_LOCK = _Lock()
-_VALIDATION_STATIC_FILE_LOCK = _Lock()
 
 
 @_contextmanager
@@ -35,13 +34,6 @@ def write_to_tempfile(lst):
 
         f.flush()
         yield f.name
-
-
-@_lru_cache(maxsize=None)
-def generate_validation_static_files():
-    """Generates the GGI and PPI necessary for validation methods"""
-    network_generator_script = f"{_config['api.directories.scripts']}/nedrex_validation/network_generator.py"
-    _subprocess.check_call(["python", network_generator_script], cwd=_config["api.directories.static"])
 
 
 def standardize_list(lst, prefix):
@@ -153,8 +145,7 @@ def joint_validation_wrapper(uid: str):
 
 
 def joint_validation(uid):
-    with _VALIDATION_STATIC_FILE_LOCK:
-        generate_validation_static_files()
+    generate_validation_static_files()
 
     details = _VALIDATION_COLL.find_one({"uid": uid})
     if not details:
@@ -162,6 +153,7 @@ def joint_validation(uid):
 
     with _VALIDATION_COLL_LOCK:
         _VALIDATION_COLL.update_one({"uid": uid}, {"$set": {"status": "running"}})
+        logger.info(f"starting joint validation job {uid!r}")
 
     if details["module_member_type"] == "gene":
         network_file = f"{_STATIC_DIR / 'GGI.gt'}"
@@ -188,9 +180,10 @@ def joint_validation(uid):
             outfile.name,
         ]
 
-        _subprocess.call(command)
-        outfile.seek(0)
+        p = _subprocess.Popen(command, stdout=_subprocess.PIPE, stderr=_subprocess.PIPE)
+        p.communicate()
 
+        outfile.seek(0)
         result = outfile.read()
         result_lines = [line.strip() for line in result.split("\n")]
         for line in result_lines:
@@ -210,6 +203,8 @@ def joint_validation(uid):
                 }
             },
         )
+
+    logger.success(f"finished running joint validation job {uid!r}")
 
 
 # Module-based validation request + routes
@@ -285,8 +280,7 @@ def module_validation_wrapper(uid):
 
 
 def module_validation(uid: str):
-    with _VALIDATION_STATIC_FILE_LOCK:
-        generate_validation_static_files()
+    generate_validation_static_files()
 
     details = _VALIDATION_COLL.find_one({"uid": uid})
     if not details:
@@ -294,6 +288,7 @@ def module_validation(uid: str):
 
     with _VALIDATION_COLL_LOCK:
         _VALIDATION_COLL.update_one({"uid": uid}, {"$set": {"status": "running"}})
+        logger.info(f"starting module-based validation job {uid!r}")
 
     if details["module_member_type"] == "gene":
         network_file = f"{_STATIC_DIR / 'GGI.gt'}"
@@ -316,9 +311,15 @@ def module_validation(uid: str):
             "Y" if details["only_approved_drugs"] else "N",
             outfile.name,
         ]
-        _subprocess.call(command)
-        outfile.seek(0)
 
+        p = _subprocess.Popen(command, stderr=_subprocess.PIPE, stdout=_subprocess.PIPE)
+        _, stderr = p.communicate()
+        if p.returncode != 0:
+            logger.error(f"module-based validation job {uid!r} failed")
+            logger.error("\n" + stderr.decode())
+            raise Exception("module_validation.py had non-zero exit code; API developers are aware of this issue")
+
+        outfile.seek(0)
         result = outfile.read()
         result_lines = [line.strip() for line in result.split("\n")]
         for line in result_lines:
@@ -338,6 +339,8 @@ def module_validation(uid: str):
                 }
             },
         )
+
+    logger.success(f"finished running module-based validation job {uid!r}")
 
 
 # Drug-based validation request + routes
@@ -401,8 +404,7 @@ def drug_validation_wrapper(uid: str):
 
 
 def drug_validation(uid: str):
-    with _VALIDATION_STATIC_FILE_LOCK:
-        generate_validation_static_files()
+    generate_validation_static_files()
 
     details = _VALIDATION_COLL.find_one({"uid": uid})
     if not details:
@@ -410,6 +412,7 @@ def drug_validation(uid: str):
 
     with _VALIDATION_COLL_LOCK:
         _VALIDATION_COLL.update_one({"uid": uid}, {"$set": {"status": "running"}})
+        logger.info(f"starting drug-based validation job {uid!r}")
 
     with write_to_tempfile(details["test_drugs"]) as test_drugs_f, write_to_tempfile(
         details["true_drugs"]
@@ -425,7 +428,9 @@ def drug_validation(uid: str):
             outfile.name,
         ]
 
-        _subprocess.call(command)
+        p = _subprocess.Popen(command, stdout=_subprocess.PIPE, stderr=_subprocess.PIPE)
+        p.communicate()
+
         outfile.seek(0)
 
         result = outfile.read()
@@ -449,3 +454,5 @@ def drug_validation(uid: str):
                 }
             },
         )
+
+    logger.success(f"finished running drug-based validation job {uid!r}")

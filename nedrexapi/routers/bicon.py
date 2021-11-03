@@ -167,6 +167,13 @@ def run_bicon(uid):
 
     workdir = _BICON_DIR / uid
 
+    # If a resubmission, it may be the case that the directory has already been zipped.
+    # This block unzips that file to re-run BiCoN on the original input files.
+    zip_path = f"{workdir.resolve()}.zip"
+    if _os.path.isfile(zip_path):
+        _subprocess.call(["unzip", zip_path], cwd=f"{_BICON_DIR}")
+        _os.remove(zip_path)
+
     if details["network"] == "DEFAULT":
         query = DEFAULT_QUERY
     elif details["network"] == "SHARED_DISORDER":
@@ -195,8 +202,6 @@ def run_bicon(uid):
         "--outdir",
         ".",
     ]
-
-    print(command)
 
     p = _subprocess.Popen(command, cwd=f"{workdir}", stdout=_subprocess.PIPE, stderr=_subprocess.PIPE)
     stdout, stderr = p.communicate()

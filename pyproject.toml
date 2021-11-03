@@ -14,6 +14,9 @@ click = "^8.0.3"
 neo4j = "^4.3.7"
 python-multipart = "^0.0.5"
 requests = "^2.26.0"
+filelock = "^3.3.2"
+redis = "^3.5.3"
+pottery = "^1.4.7"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
