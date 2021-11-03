@@ -1,4 +1,3 @@
-import json as _json
 from collections import defaultdict as _defaultdict
 from collections.abc import MutableMapping as _MutableMapping
 from itertools import chain as _chain
@@ -18,6 +17,7 @@ from pydantic import BaseModel as _BaseModel, Field as _Field
 from nedrexapi.config import config as _config
 from nedrexapi.common import get_api_collection as _get_api_collection, _REDIS
 from nedrexapi.db import MongoInstance
+from nedrexapi.logger import logger as _logger
 
 router = _APIRouter()
 
@@ -219,9 +219,6 @@ async def graph_builder(background_tasks: _BackgroundTasks, build_request: Build
 
     query = dict(build_request)
 
-    with (_Path(_config["api.directories.static"]) / "metadata.json").open() as f:
-        query["version"] = _json.load(f)["version"]
-
     with _GRAPH_COLL_LOCK:
         result = _GRAPH_COLL.find_one(query)
         if not result:
@@ -335,6 +332,7 @@ def graph_constructor(uid):
         if not query:
             raise Exception()
         _GRAPH_COLL.update_one({"uid": query["uid"]}, {"$set": {"status": "building"}})
+        _logger.info(f"starting graph build job {uid!r}")
 
     g = _nx.DiGraph()
 
@@ -554,3 +552,5 @@ def graph_constructor(uid):
     _nx.write_graphml(g, f"{_GRAPH_DIR / query['uid']}.graphml")
     with _GRAPH_COLL_LOCK:
         _GRAPH_COLL.update_one({"uid": query["uid"]}, {"$set": {"status": "completed"}})
+
+    _logger.success(f"finished graph build job {uid!r}")

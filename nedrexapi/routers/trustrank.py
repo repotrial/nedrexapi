@@ -22,6 +22,7 @@ from nedrexapi.common import (
     generate_ranking_static_files as _generate_ranking_static_files,
     _REDIS,
 )
+from nedrexapi.logger import logger as _logger
 
 
 _TRUSTRANK_COLL = _get_api_collection("trustrank_")
@@ -137,6 +138,7 @@ def run_trustrank(uid):
         if not details:
             raise Exception(f"No TrustRank job with UID {uid!r}")
         _TRUSTRANK_COLL.update_one({"uid": uid}, {"$set": {"status": "running"}})
+        _logger.info(f"starting TrustRank job {uid!r}")
 
     tmp = _tempfile.NamedTemporaryFile(mode="wt")
     for seed in details["seed_proteins"]:
@@ -213,3 +215,5 @@ def run_trustrank(uid):
 
     with _TRUSTRANK_COLL_LOCK:
         _TRUSTRANK_COLL.update_one({"uid": uid}, {"$set": {"status": "completed", "results": results}})
+
+    _logger.success(f"finished TrustRank job {uid!r}")

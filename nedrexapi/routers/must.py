@@ -14,7 +14,7 @@ from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.config import config as _config
 from nedrexapi.common import get_api_collection as _get_api_collection, _REDIS
-
+from nedrexapi.logger import logger as _logger
 
 _NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_config['db.dev.neo4j_bolt_port']}")
 
@@ -183,6 +183,7 @@ def run_must(uid):
         if not details:
             raise Exception(f"No MuST job with UID {uid!r}")
         _MUST_COLL.update_one({"uid": uid}, {"$set": {"status": "running"}})
+        _logger.info(f"starting MuST job {uid!r}")
 
     tempdir = _tempfile.TemporaryDirectory()
 
@@ -262,3 +263,5 @@ def run_must(uid):
 
     with _MUST_COLL_LOCK:
         _MUST_COLL.update_one({"uid": uid}, {"$set": {"status": "comleted", "results": results}})
+
+    _logger.success(f"finished MuST job {uid!r}")

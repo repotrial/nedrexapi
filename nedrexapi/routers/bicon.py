@@ -23,6 +23,7 @@ from pottery import Redlock as _Redlock
 
 from nedrexapi.config import config as _config
 from nedrexapi.common import get_api_collection as _get_api_collection, _REDIS
+from nedrexapi.logger import logger as _logger
 
 _NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_config['db.dev.neo4j_bolt_port']}")
 
@@ -164,6 +165,7 @@ def run_bicon(uid):
         if not details:
             raise Exception()
         _BICON_COLL.update_one({"uid": uid}, {"$set": {"status": "running"}})
+        _logger.info(f"starting BiCoN job {uid!r}")
 
     workdir = _BICON_DIR / uid
 
@@ -262,3 +264,5 @@ def run_bicon(uid):
     _shutil.rmtree(f"{_BICON_DIR / uid}")
     with _BICON_COLL_LOCK:
         _BICON_COLL.update_one({"uid": uid}, {"$set": {"status": "completed", "result": results}})
+
+    _logger.info(f"finished BiCoN job {uid!r}")

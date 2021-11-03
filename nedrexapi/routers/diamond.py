@@ -21,6 +21,7 @@ from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.config import config as _config
 from nedrexapi.common import get_api_collection as _get_api_collection, _REDIS
+from nedrexapi.logger import logger as _logger
 
 _NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_config['db.dev.neo4j_bolt_port']}")
 
@@ -219,6 +220,7 @@ def run_diamond(uid: str):
         if not details:
             raise Exception(f"No DIAMOnD job with UID {uid!r}")
         _DIAMOND_COLL.update_one({"uid": uid}, {"$set": {"status": "running"}})
+        _logger.info(f"starting DIAMOnD job {uid!r}")
 
     tempdir = _tempfile.TemporaryDirectory()
     tup = (details["seed_type"], details["network"])
@@ -312,3 +314,5 @@ def run_diamond(uid: str):
 
     with _DIAMOND_COLL_LOCK:
         _DIAMOND_COLL.update_one({"uid": uid}, {"$set": {"status": "completed", "results": results}})
+
+    _logger.success(f"finished DIAMOnD job {uid!r}")

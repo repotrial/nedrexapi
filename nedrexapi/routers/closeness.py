@@ -22,6 +22,7 @@ from nedrexapi.common import (
     generate_ranking_static_files as _generate_ranking_static_files,
     _REDIS,
 )
+from nedrexapi.logger import logger as _logger
 
 
 _CLOSENESS_COLL = _get_api_collection("closeness_")
@@ -129,6 +130,7 @@ def run_closeness(uid):
         if not details:
             raise Exception(f"No TrustRank job with UID {uid!r}")
         _CLOSENESS_COLL.update_one({"uid": uid}, {"$set": {"status": "running"}})
+        _logger.info(f"starting closeness job {uid!r}")
 
     tmp = _tempfile.NamedTemporaryFile(mode="wt")
     for seed in details["seed_proteins"]:
@@ -206,3 +208,5 @@ def run_closeness(uid):
 
     with _CLOSENESS_COLL_LOCK:
         _CLOSENESS_COLL.update_one({"uid": uid}, {"$set": {"status": "completed", "results": results}})
+
+    _logger.success(f"finished closeness job {uid!r}")
