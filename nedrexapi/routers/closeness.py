@@ -3,7 +3,6 @@ import tempfile as _tempfile
 import traceback as _traceback
 from csv import DictReader as _DictReader
 from itertools import product as _product
-from multiprocessing import Lock as _Lock
 from pathlib import Path as _Path
 from uuid import uuid4 as _uuid4
 
@@ -14,19 +13,21 @@ from fastapi import (
     HTTPException as _HTTPException,
     Response as _Response,
 )
+from pottery import Redlock as _Redlock
 from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.config import config as _config
 from nedrexapi.common import (
     get_api_collection as _get_api_collection,
     generate_ranking_static_files as _generate_ranking_static_files,
+    _REDIS,
 )
 
 
 _CLOSENESS_COLL = _get_api_collection("closeness_")
 _CLOSENESS_DIR = _Path(_config["api.directories.data"]) / "closeness_"
 _CLOSENESS_DIR.mkdir(parents=True, exist_ok=True)
-_CLOSENESS_COLL_LOCK = _Lock()
+_CLOSENESS_COLL_LOCK = _Redlock(key="closeness_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
 
 router = _APIRouter()
 

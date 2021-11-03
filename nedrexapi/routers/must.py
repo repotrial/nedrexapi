@@ -4,16 +4,16 @@ import tempfile as _tempfile
 import traceback as _traceback
 from csv import DictReader as _DictReader
 from functools import lru_cache as _lru_cache
-from multiprocessing import Lock as _Lock
 from pathlib import Path as _Path
 from uuid import uuid4 as _uuid4
 
 from fastapi import APIRouter as _APIRouter, BackgroundTasks as _BackgroundTasks, HTTPException as _HTTPException
 from neo4j import GraphDatabase as _GraphDatabase  # type: ignore
+from pottery import Redlock as _Redlock
 from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.config import config as _config
-from nedrexapi.common import get_api_collection as _get_api_collection
+from nedrexapi.common import get_api_collection as _get_api_collection, _REDIS
 
 
 _NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_config['db.dev.neo4j_bolt_port']}")
@@ -21,7 +21,7 @@ _NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_config['db.dev.ne
 _MUST_COLL = _get_api_collection("must_")
 _MUST_DIR = _Path(_config["api.directories.data"]) / "must_"
 _MUST_DIR.mkdir(parents=True, exist_ok=True)
-_MUST_COLL_LOCK = _Lock()
+_MUST_COLL_LOCK = _Redlock(key="must_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
 
 router = _APIRouter()
 

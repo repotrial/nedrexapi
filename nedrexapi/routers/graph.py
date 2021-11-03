@@ -2,7 +2,6 @@ import json as _json
 from collections import defaultdict as _defaultdict
 from collections.abc import MutableMapping as _MutableMapping
 from itertools import chain as _chain
-from multiprocessing import Lock as _Lock
 from pathlib import Path as _Path
 from uuid import uuid4 as _uuid4
 
@@ -13,17 +12,18 @@ from fastapi import (
     HTTPException as _HTTPException,
     Response as _Response,
 )
+from pottery import Redlock as _Redlock
 from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.config import config as _config
-from nedrexapi.common import get_api_collection as _get_api_collection
+from nedrexapi.common import get_api_collection as _get_api_collection, _REDIS
 from nedrexapi.db import MongoInstance
 
 router = _APIRouter()
 
 _GRAPH_COLL = _get_api_collection("graphs_")
 _GRAPH_DIR = _Path(_config["api.directories.data"]) / "graphs_"
-_GRAPH_COLL_LOCK = _Lock()
+_GRAPH_COLL_LOCK = _Redlock(key="graph_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
 
 DEFAULT_NODE_COLLECTIONS = ["disorder", "drug", "gene", "protein"]
 DEFAULT_EDGE_COLLECTIONS = [

@@ -1,16 +1,16 @@
 import tempfile as _tempfile
 import subprocess as _subprocess
 from contextlib import contextmanager as _contextmanager
-from multiprocessing import Lock as _Lock
 from pathlib import Path as _Path
 from typing import Any as _Any
 from uuid import uuid4 as _uuid4
 
 from fastapi import APIRouter as _APIRouter, BackgroundTasks as _BackgroundTasks, HTTPException as _HTTPException
+from pottery import Redlock as _Redlock
 from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.config import config as _config
-from nedrexapi.common import get_api_collection as _get_api_collection, generate_validation_static_files
+from nedrexapi.common import get_api_collection as _get_api_collection, generate_validation_static_files, _REDIS
 from nedrexapi.logger import logger
 
 router = _APIRouter()
@@ -18,7 +18,7 @@ router = _APIRouter()
 _STATIC_DIR = _Path(_config["api.directories.static"])
 
 _VALIDATION_COLL = _get_api_collection("validation_")
-_VALIDATION_COLL_LOCK = _Lock()
+_VALIDATION_COLL_LOCK = _Redlock(key="validation_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
 
 
 @_contextmanager

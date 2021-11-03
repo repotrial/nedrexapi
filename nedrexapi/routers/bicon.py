@@ -7,7 +7,6 @@ import sys as _sys
 import traceback as _traceback
 import zipfile as _zipfile
 from functools import lru_cache as _lru_cache
-from multiprocessing import Lock as _Lock
 from pathlib import Path as _Path
 from uuid import uuid4 as _uuid4
 
@@ -20,16 +19,17 @@ from fastapi import (
     File as _File,
 )
 from neo4j import GraphDatabase as _GraphDatabase  # type: ignore
+from pottery import Redlock as _Redlock
 
 from nedrexapi.config import config as _config
-from nedrexapi.common import get_api_collection as _get_api_collection
+from nedrexapi.common import get_api_collection as _get_api_collection, _REDIS
 
 _NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_config['db.dev.neo4j_bolt_port']}")
 
 _BICON_COLL = _get_api_collection("bicon_")
 _BICON_DIR = _Path(_config["api.directories.data"]) / "bicon_"
 _BICON_DIR.mkdir(parents=True, exist_ok=True)
-_BICON_COLL_LOCK = _Lock()
+_BICON_COLL_LOCK = _Redlock(key="bicon_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
 
 DEFAULT_QUERY = """
 MATCH (pa)-[ppi:ProteinInteractsWithProtein]-(pb)
