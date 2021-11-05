@@ -16,8 +16,8 @@ def test_drug_based_validation():
         "DB00569",
         "DB00682",
         "DB00682",
-        "DB01109",
-        "DB01109",
+        #        "DB01109",
+        #        "DB01109",
         "DB01418",
         "DB01418",
         "DB06228",
@@ -686,8 +686,58 @@ def test_closeness():
     print(resp.status_code, resp.text)
 
 
+def test_trustrank():
+    seeds = [
+        "A1A4Y4",
+        "O00571",
+        "O14965",
+        "O43683",
+        "O43707",
+        "O60674",
+        "O75051",
+        "O75179",
+        "O95150",
+        "O95256",
+        "O95996",
+        "O95999",
+        "P00533",
+        "P01023",
+        "P01137",
+        "P01375",
+        "P04150",
+        "P04626",
+        "P04629",
+        "P04792",
+    ]
+    only_direct_drugs = True
+    only_approved_drugs = True
+    n = 10
+
+    payload = {
+        "seeds": seeds,
+        "only_direct_drugs": only_direct_drugs,
+        "only_approved_drugs": only_approved_drugs,
+        "N": n,
+    }
+    url = "http://82.148.225.92:8022/trustrank/submit"
+    resp = requests.post(url, json=payload)
+    print(resp.status_code, resp.text)
+
+
+def test_bicon():
+    network = "/Users/james/Downloads/lung_expr_nonorm.csv"
+
+    files = {"expression_file": open(network, "rb")}
+
+    url = "http://82.148.225.92:8022/bicon/submit"
+    resp = requests.post(url, files=files)
+    print(resp.status_code, resp.text)
+
+
 if __name__ == "__main__":
     test_drug_based_validation()
     test_module_based_validation()
     test_join_validation()
     test_closeness()
+    test_trustrank()
+    test_bicon()

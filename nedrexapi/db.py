@@ -9,12 +9,7 @@ from nedrexapi.config import config as _config
 
 def create_directories():
     _Path(_config["api.directories.static"]).mkdir(exist_ok=True, parents=True)
-
-    data_dir = _Path(_config["api.directories.data"])
-    data_dir.mkdir(exist_ok=True, parents=True)
-
-    for subdir in ("bicon", "closeness", "diamond", "graphs", "must", "trustrank"):
-        (data_dir / subdir).mkdir(exist_ok=True)
+    _Path(_config["api.directories.data"]).mkdir(exist_ok=True, parents=True)
 
 
 @_dataclass

@@ -1,7 +1,6 @@
-import time as _time
 import subprocess as _subprocess
 
-from pottery import Redlock as _Redlock, redis_cache as _redis_cache
+from pottery import RedisDict as _RedisDict, Redlock as _Redlock
 from pymongo import MongoClient as _MongoClient  # type: ignore
 from redis import Redis as _Redis  # type: ignore
 
@@ -12,20 +11,23 @@ _MONGO_CLIENT = _MongoClient(port=_config["api.mongo_port"])
 _MONGO_DB = _MONGO_CLIENT[_config["api.mongo_db"]]
 
 _REDIS = _Redis.from_url("redis://localhost:6379/1")
+_STATUS = _RedisDict(redis=_REDIS, key="static-file-status")
 
-_RANKING_STATIC_FILES_LOCK = _Redlock(key="ranking_static_file_lock", masters={_REDIS}, auto_release_time=int(1e10))
-_VALIDATION_STATIC_FILE_LOCK = _Redlock(
-    key="validation_static_file_lock", masters={_REDIS}, auto_release_time=int(1e10)
-)
+_STATIC_RANKING_LOCK = _Redlock(key="static-ranking-lock", masters={_REDIS}, auto_release_time=int(1e10))
+_STATIC_VALIDATION_LOCK = _Redlock(key="static-validation-lock", masters={_REDIS}, auto_release_time=int(1e10))
 
 
 def get_api_collection(coll_name):
     return _MONGO_DB[coll_name]
 
 
-@_redis_cache(redis=_REDIS, key="ranking_static_file_fx_cache", timeout=int(1e10))
-def _generate_ranking_static_files():
+def generate_ranking_static_files():
     """Generates the GGI and PPI necessary for ranking routes"""
+
+    _STATIC_RANKING_LOCK.acquire()
+    if _STATUS.get("static-ranking") is True:
+        _STATIC_RANKING_LOCK.release()
+        return
 
     logger.info("generating static files for ranking routes")
     p = _subprocess.Popen(
@@ -38,21 +40,21 @@ def _generate_ranking_static_files():
 
     if p.returncode == 0:
         logger.info("static files for ranking routes generated successfully")
-        return True
+        _STATUS["static-ranking"] = True
     else:
         logger.critical("static files for ranking routes exited with non-zero exit code")
-        return False
+        _STATUS["static-ranking"] = False
+
+    _STATIC_RANKING_LOCK.release()
 
 
-def generate_ranking_static_files():
-    with _RANKING_STATIC_FILES_LOCK:
-        _time.sleep(1)
-        _generate_ranking_static_files()
-
-
-@_redis_cache(redis=_REDIS, key="ranking_validation_file_fx_cache", timeout=int(1e10))
-def _generate_validation_static_files():
+def generate_validation_static_files():
     """Generates the GGI and PPI necessary for validation routes"""
+
+    _STATIC_VALIDATION_LOCK.acquire()
+    if _STATUS.get("static-validation") is True:
+        _STATIC_VALIDATION_LOCK.release()
+        return
 
     logger.info("generating static files (GGI and PPI) for validation methods")
     network_generator_script = f"{_config['api.directories.scripts']}/nedrex_validation/network_generator.py"
@@ -67,13 +69,9 @@ def _generate_validation_static_files():
 
     if p.returncode == 0:
         logger.info("static files for validation routes generated successfully")
-        return True
+        _STATUS["static-validation"] = True
     else:
         logger.critical("static files for validation routes exited with non-zero exit code")
-        return False
+        _STATUS["static-validation"] = False
 
-
-def generate_validation_static_files():
-    with _VALIDATION_STATIC_FILE_LOCK:
-        _time.sleep(1)
-        _generate_validation_static_files()
+    _STATIC_VALIDATION_LOCK.release()
