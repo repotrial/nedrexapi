@@ -1,9 +1,11 @@
 import json as _json
 from enum import Enum
 from pathlib import Path as _Path
+from urllib.request import urlopen
 
-from fastapi import APIRouter as _APIRouter
+from fastapi import APIRouter as _APIRouter, Response as _Response
 
+from nedrexapi.db import MongoInstance
 from nedrexapi.config import config as _config
 
 router = _APIRouter()
@@ -53,5 +55,12 @@ class Metadata:
 
 @router.get("/metadata", summary="Metadata and versions of source datasets for the NeDRex database")
 def get_metadata():
-    Metadata.parse_metadata()
-    return Metadata.metadata
+    doc = MongoInstance.DB()["metadata"].find_one({})
+    doc.pop("_id")
+    return doc
+
+
+@router.get("/licence", summary="Licence for the NeDRex platform")
+def get_licence():
+    url = "https://raw.githubusercontent.com/repotrial/nedrex_platform_licence/main/licence.txt"
+    return _Response(urlopen(url).read(), media_type="text/plain")

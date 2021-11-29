@@ -21,6 +21,7 @@ from nedrexapi.routers import (  # noqa: E402
     closeness as _closeness,
     validation as _validation,
     admin as _admin,
+    variant as _variant,
 )
 
 
@@ -52,3 +53,4 @@ app.include_router(_trustrank.router, prefix="/trustrank", tags=["TrustRank"])
 app.include_router(_closeness.router, prefix="/closeness", tags=["Closeness"])
 app.include_router(_validation.router, prefix="/validation", tags=["Validation"])
 app.include_router(_admin.router, prefix="/admin", tags=["Admin"])
+app.include_router(_variant.router, prefix="/variants", tags=["Variants"])
