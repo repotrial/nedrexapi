@@ -8,8 +8,6 @@ from nedrexapi.db import MongoInstance
 
 router = _APIRouter()
 
-# TODO: Multiple workers don't share the same LRU cache. Move to Redis.
-
 _VARIANT_ROUTE_CHOICES = RedisDict({}, redis=_REDIS, key="variant-route-choices")
 
 
