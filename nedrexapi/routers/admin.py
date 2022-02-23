@@ -1,4 +1,5 @@
 from fastapi import APIRouter as _APIRouter, BackgroundTasks as _BackgroundTasks
+from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.common import get_api_collection
 from nedrexapi.routers.bicon import run_bicon_wrapper as _run_bicon_wrapper
@@ -49,6 +50,36 @@ KEEP_KEYS = {
     },
     "bicon": {"sha256", "lg_min", "lg_max", "network", "submitted_filename", "filename", "uid", "_id"},
 }
+
+
+class APIKeyGenRequest(_BaseModel):
+    accept_eula: bool = _Field(None, title="Accept EULA", description="Set to True if you accept the EULA.")
+
+
+class APIKeyRequest(_BaseModel):
+    api_key: str = _Field(None, title="API key", description="API key")
+
+
+DEFAULT_APIKG = APIKeyGenRequest()
+DEFAULT_APIKR = APIKeyRequest()
+
+
+@router.get("/api_key/verify", include_in_schema=False)
+def api_key_verify(akr: APIKeyRequest = DEFAULT_APIKR):
+    print(akr)
+    return "Not implemented!"
+
+
+@router.post("/api_key/generate")
+def api_key_generate(kgr: APIKeyGenRequest = DEFAULT_APIKG):
+    print(kgr)
+    return "Not implemented!"
+
+
+@router.post("/api_key/revoke")
+def api_key_revoke(akr: APIKeyRequest = DEFAULT_APIKR):
+    print(akr)
+    return "Not implemented!"
 
 
 @router.post("/resubmit/{job_type}/{uid}", include_in_schema=False)

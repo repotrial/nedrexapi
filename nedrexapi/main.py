@@ -29,6 +29,11 @@ app = FastAPI(
     title="NeDRexAPI",
     description="""
 An API for accessing the NeDRex database.
+By using this API, you agree to the
+[NeDRex platform licence](https://raw.githubusercontent.com/repotrial/nedrex_platform_licence/main/licence.txt).
+You must not use this API if you do not or cannot agree to this licence.
+
+
 For details about the edge and node types in the database, please consult this
 [Google Doc](https://docs.google.com/document/d/1ji9_vZJa5XoLXQspKkb3eJ1fn4Mr7CPghCQRavmi1Ac/edit?usp=sharing)
 
