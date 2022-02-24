@@ -1,4 +1,7 @@
-from fastapi import APIRouter as _APIRouter, BackgroundTasks as _BackgroundTasks
+import datetime
+import secrets
+
+from fastapi import APIRouter as _APIRouter, BackgroundTasks as _BackgroundTasks, HTTPException as _HTTPException
 from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.common import get_api_collection
@@ -64,22 +67,54 @@ DEFAULT_APIKG = APIKeyGenRequest()
 DEFAULT_APIKR = APIKeyRequest()
 
 
+API_KEY_COLLECTION = get_api_collection("api_keys_")
+
+
 @router.get("/api_key/verify", include_in_schema=False)
 def api_key_verify(akr: APIKeyRequest = DEFAULT_APIKR):
-    print(akr)
-    return "Not implemented!"
+    if not getattr(akr, "api_key", None):
+        raise _HTTPException(status_code=404, detail="No API key provided")
+
+    entry = API_KEY_COLLECTION.find_one({"key": akr.api_key})
+    if not entry:
+        return False
+    elif entry["expiry"] < datetime.datetime.utcnow():
+        return False
+    return True
 
 
-@router.post("/api_key/generate")
+@router.post("/api_key/generate", include_in_schema=False)
 def api_key_generate(kgr: APIKeyGenRequest = DEFAULT_APIKG):
-    print(kgr)
-    return "Not implemented!"
+    if getattr(kgr, "accept_eula", False) is not True:
+        raise _HTTPException(status_code=404, detail="You must accept the EULA to generate a key")
+
+    new_key = secrets.token_urlsafe(32)
+    while API_KEY_COLLECTION.find_one({"key": new_key}):
+        new_key = secrets.token_urlsafe(32)
+
+    expiry = datetime.datetime.utcnow()
+    expiry += datetime.timedelta(days=1)
+
+    API_KEY_COLLECTION.insert_one({"key": new_key, "expiry": expiry, "revokable": True})
+
+    return new_key
 
 
-@router.post("/api_key/revoke")
+@router.post("/api_key/revoke", include_in_schema=False)
 def api_key_revoke(akr: APIKeyRequest = DEFAULT_APIKR):
-    print(akr)
-    return "Not implemented!"
+    if not getattr(akr, "api_key", None):
+        raise _HTTPException(status_code=404, detail="No API key provided")
+
+    entry = API_KEY_COLLECTION.find_one({"key": akr.api_key})
+
+    if not entry:
+        return {"detail": "API key is not valid"}
+
+    if entry["revokable"] is False:
+        return {"detail": "API key given is not revokable via this route"}
+
+    API_KEY_COLLECTION.delete_one({"key": akr.api_key})
+    return {"detail": "Success"}
 
 
 @router.post("/resubmit/{job_type}/{uid}", include_in_schema=False)
