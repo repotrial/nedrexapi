@@ -101,7 +101,7 @@ def list_attributes(t: str):
 
 @router.get("/{t}/attributes/{attribute}/{format}")
 def get_attribute_values(t: str, attribute: str, format: str, api_key: str = None):
-    if t in {"drug", "drug_has_target", "gene_associated_with_disorder"}:
+    if t in config["protected_nodes"] + config["protected_edges"]:
         check_api_key(api_key)
 
     if t in config["api.node_collections"]:
@@ -148,7 +148,7 @@ def get_node_attribute_values(t: str, format: str, ar: AttributeRequest = DEFAUL
         raise _HTTPException(status_code=404, detail="No node(s) requested")
 
     # NOTE: Only need a special case for drugs because this route only gives access to nodes (not edges).
-    if t == "drug":
+    if t in config["protected_nodes"]:
         check_api_key(ar.api_key)
 
     query = {"primaryDomainId": {"$in": ar.node_ids}}
@@ -226,7 +226,7 @@ def list_all_collection_items(t: str, api_key: str = None):
     if t not in config["api.node_collections"] + config["api.edge_collections"]:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
 
-    if t in {"drug", "drug_has_target", "gene_associated_with_disorder"}:
+    if t in config["protected_nodes"] + config["protected_edges"]:
         check_api_key(api_key)
 
     return [{k: v for k, v in i.items() if k != "_id"} for i in MongoInstance.DB()[t].find()]
@@ -240,7 +240,7 @@ def get_primary_id(supplied_id, coll):
 
 
 @router.get("/get_by_id/{t}", summary="Get by ID")
-def get_by_id(t: str, q: list[str] = DEFAULT_QUERY):
+def get_by_id(t: str, q: list[str] = DEFAULT_QUERY, api_key: str = None):
     """
     Returns an array of items with one or more of the specified query IDs, `q`, from a collection, `t`.
     The query IDs are of the form `{database}.{accession}`, for example `uniprot.Q9UBT6`.
@@ -252,6 +252,9 @@ def get_by_id(t: str, q: list[str] = DEFAULT_QUERY):
 
     if t not in config["api.node_collections"]:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
+
+    if t in config["protected_nodes"]:
+        check_api_key(api_key)
 
     result = MongoInstance.DB()[t].find({"domainIds": {"$in": q}})
     result = [{k: v for k, v in i.items() if not k == "_id"} for i in result]
