@@ -7,6 +7,7 @@ from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.db import MongoInstance
 from nedrexapi.config import config
+from nedrexapi.routers.admin import api_key_verify, APIKeyRequest
 
 router = _APIRouter()
 
@@ -14,6 +15,7 @@ router = _APIRouter()
 class AttributeRequest(_BaseModel):
     node_ids: list[str] = _Field(None, title="Primary domain IDs of nodes")
     attributes: list[str] = _Field(None, title="Attributes requested")
+    api_key: str = _Field(None, title="API key (only required to access some data")
 
     class Config:
         extra = "forbid"
@@ -141,6 +143,11 @@ def get_node_attribute_values(t: str, format: str, ar: AttributeRequest = DEFAUL
         raise _HTTPException(status_code=404, detail="No attribute(s) requested")
     if ar.node_ids is None:
         raise _HTTPException(status_code=404, detail="No node(s) requested")
+
+    if t == "drug":
+        kr = APIKeyRequest(api_key=ar.api_key)
+        if api_key_verify(kr) is False:
+            raise _HTTPException(status_code=401, detail="API key authentication required to access Drug details")
 
     query = {"primaryDomainId": {"$in": ar.node_ids}}
 
