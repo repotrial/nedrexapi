@@ -102,6 +102,11 @@ def list_attributes(t: str):
 @router.get("/{t}/attributes/{attribute}/{format}")
 def get_attribute_values(t: str, attribute: str, format: str, api_key: str = None):
     if t in {"drug", "drug_has_target", "gene_associated_with_disorder"}:
+        if api_key is None:
+            raise _HTTPException(
+                status_code=401, detail=f"API key authentication required to access the {t} collection"
+            )
+
         kr = APIKeyRequest(api_key=api_key)
         if api_key_verify(kr) is False:
             raise _HTTPException(
@@ -151,7 +156,10 @@ def get_node_attribute_values(t: str, format: str, ar: AttributeRequest = DEFAUL
     if ar.node_ids is None:
         raise _HTTPException(status_code=404, detail="No node(s) requested")
 
+    # NOTE: Only need a special case for drugs because this route only gives access to nodes (not edges).
     if t == "drug":
+        if ar.api_key is None:
+            raise _HTTPException(status_code=401, detail="API key authentication required to access Drug details")
         kr = APIKeyRequest(api_key=ar.api_key)
         if api_key_verify(kr) is False:
             raise _HTTPException(status_code=401, detail="API key authentication required to access Drug details")
@@ -222,7 +230,7 @@ def collection_details(t: str):
     summary="List all collection items",
 )
 @_cached(cache=_LRUCache(maxsize=32))
-def list_all_collection_items(t: str):
+def list_all_collection_items(t: str, api_key: str = None):
     """
     Returns an array of all items in the collection `t`.
     Items are returned as JSON, and have all of their attributes (and corresponding values).
@@ -230,6 +238,17 @@ def list_all_collection_items(t: str):
     """
     if t not in config["api.node_collections"] + config["api.edge_collections"]:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
+
+    if t in {"drug", "drug_has_target", "gene_associated_with_disorder"}:
+        if api_key is None:
+            raise _HTTPException(
+                status_code=401, detail=f"API key authentication required to access the {t} collection"
+            )
+        kr = APIKeyRequest(api_key=api_key)
+        if api_key_verify(kr) is False:
+            raise _HTTPException(
+                status_code=401, detail=f"API key authentication required to access the {t} collection"
+            )
 
     return [{k: v for k, v in i.items() if k != "_id"} for i in MongoInstance.DB()[t].find()]
 
