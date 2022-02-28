@@ -1,5 +1,6 @@
 import datetime
 import secrets
+from typing import Optional
 
 from fastapi import APIRouter as _APIRouter, BackgroundTasks as _BackgroundTasks, HTTPException as _HTTPException
 from pydantic import BaseModel as _BaseModel, Field as _Field
@@ -147,3 +148,14 @@ def resubmit_job(job_type: str, uid: str, background_tasks: _BackgroundTasks):
             background_tasks.add_task(_joint_validation_wrapper, uid)
 
     return uid
+
+
+def check_api_key(api_key: Optional[str]) -> bool:
+    if api_key is None:
+        raise _HTTPException(status_code=401, detail="A valid API key is required to access the requested data")
+
+    kr = APIKeyRequest(api_key=api_key)
+    if api_key_verify(kr) is False:
+        raise _HTTPException(status_code=401, detail="An invalid API key was supplied")
+
+    return True

@@ -7,7 +7,7 @@ from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.db import MongoInstance
 from nedrexapi.config import config
-from nedrexapi.routers.admin import api_key_verify, APIKeyRequest
+from nedrexapi.routers.admin import check_api_key
 
 router = _APIRouter()
 
@@ -102,16 +102,7 @@ def list_attributes(t: str):
 @router.get("/{t}/attributes/{attribute}/{format}")
 def get_attribute_values(t: str, attribute: str, format: str, api_key: str = None):
     if t in {"drug", "drug_has_target", "gene_associated_with_disorder"}:
-        if api_key is None:
-            raise _HTTPException(
-                status_code=401, detail=f"API key authentication required to access the {t} collection"
-            )
-
-        kr = APIKeyRequest(api_key=api_key)
-        if api_key_verify(kr) is False:
-            raise _HTTPException(
-                status_code=401, detail=f"API key authentication required to access the {t} collection"
-            )
+        check_api_key(api_key)
 
     if t in config["api.node_collections"]:
         results = [
@@ -158,11 +149,7 @@ def get_node_attribute_values(t: str, format: str, ar: AttributeRequest = DEFAUL
 
     # NOTE: Only need a special case for drugs because this route only gives access to nodes (not edges).
     if t == "drug":
-        if ar.api_key is None:
-            raise _HTTPException(status_code=401, detail="API key authentication required to access Drug details")
-        kr = APIKeyRequest(api_key=ar.api_key)
-        if api_key_verify(kr) is False:
-            raise _HTTPException(status_code=401, detail="API key authentication required to access Drug details")
+        check_api_key(ar.api_key)
 
     query = {"primaryDomainId": {"$in": ar.node_ids}}
 
@@ -240,15 +227,7 @@ def list_all_collection_items(t: str, api_key: str = None):
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
 
     if t in {"drug", "drug_has_target", "gene_associated_with_disorder"}:
-        if api_key is None:
-            raise _HTTPException(
-                status_code=401, detail=f"API key authentication required to access the {t} collection"
-            )
-        kr = APIKeyRequest(api_key=api_key)
-        if api_key_verify(kr) is False:
-            raise _HTTPException(
-                status_code=401, detail=f"API key authentication required to access the {t} collection"
-            )
+        check_api_key(api_key)
 
     return [{k: v for k, v in i.items() if k != "_id"} for i in MongoInstance.DB()[t].find()]
 
