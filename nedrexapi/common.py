@@ -1,11 +1,15 @@
+import datetime as _datetime
 import subprocess as _subprocess
+from typing import Optional
 
+from fastapi import HTTPException as _HTTPException
 from pottery import RedisDict as _RedisDict, Redlock as _Redlock
 from pymongo import MongoClient as _MongoClient  # type: ignore
 from redis import Redis as _Redis  # type: ignore
 
 from nedrexapi.config import config as _config
 from nedrexapi.logger import logger
+
 
 _MONGO_CLIENT = _MongoClient(port=_config["api.mongo_port"])
 _MONGO_DB = _MONGO_CLIENT[_config["api.mongo_db"]]
@@ -19,6 +23,9 @@ _STATIC_VALIDATION_LOCK = _Redlock(key="static-validation-lock", masters={_REDIS
 
 def get_api_collection(coll_name):
     return _MONGO_DB[coll_name]
+
+
+_API_KEY_COLLECTION = get_api_collection("api_keys_")
 
 
 def generate_ranking_static_files():
@@ -75,3 +82,16 @@ def generate_validation_static_files():
         _STATUS["static-validation"] = False
 
     _STATIC_VALIDATION_LOCK.release()
+
+
+def check_api_key(api_key: Optional[str]) -> bool:
+    if api_key is None:
+        raise _HTTPException(status_code=401, detail="A valid API key is required to access the requested data")
+
+    entry = _API_KEY_COLLECTION.find_one({"key": api_key})
+    if not entry:
+        raise _HTTPException(status_code=401, detail="An invalid API key was supplied")
+    elif entry["expiry"] < _datetime.datetime.utcnow():
+        raise _HTTPException(status_code=401, detail="An expired API key was supplied")
+
+    return True

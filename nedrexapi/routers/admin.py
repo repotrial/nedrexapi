@@ -1,11 +1,10 @@
 import datetime
 import secrets
-from typing import Optional
 
 from fastapi import APIRouter as _APIRouter, BackgroundTasks as _BackgroundTasks, HTTPException as _HTTPException
 from pydantic import BaseModel as _BaseModel, Field as _Field
 
-from nedrexapi.common import get_api_collection
+from nedrexapi.common import get_api_collection, check_api_key
 from nedrexapi.routers.bicon import run_bicon_wrapper as _run_bicon_wrapper
 from nedrexapi.routers.closeness import run_closeness_wrapper as _run_closeness_wrapper
 from nedrexapi.routers.diamond import run_diamond_wrapper as _run_diamond_wrapper
@@ -76,12 +75,11 @@ def api_key_verify(akr: APIKeyRequest = DEFAULT_APIKR):
     if not getattr(akr, "api_key", None):
         raise _HTTPException(status_code=404, detail="No API key provided")
 
-    entry = API_KEY_COLLECTION.find_one({"key": akr.api_key})
-    if not entry:
+    try:
+        check_api_key(akr.api_key)
+        return True
+    except _HTTPException:
         return False
-    elif entry["expiry"] < datetime.datetime.utcnow():
-        return False
-    return True
 
 
 @router.post("/api_key/generate", include_in_schema=False)
@@ -148,14 +146,3 @@ def resubmit_job(job_type: str, uid: str, background_tasks: _BackgroundTasks):
             background_tasks.add_task(_joint_validation_wrapper, uid)
 
     return uid
-
-
-def check_api_key(api_key: Optional[str]) -> bool:
-    if api_key is None:
-        raise _HTTPException(status_code=401, detail="A valid API key is required to access the requested data")
-
-    kr = APIKeyRequest(api_key=api_key)
-    if api_key_verify(kr) is False:
-        raise _HTTPException(status_code=401, detail="An invalid API key was supplied")
-
-    return True

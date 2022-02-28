@@ -15,7 +15,7 @@ from pottery import Redlock as _Redlock
 from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.config import config as _config
-from nedrexapi.common import get_api_collection as _get_api_collection, _REDIS
+from nedrexapi.common import get_api_collection as _get_api_collection, _REDIS, check_api_key
 from nedrexapi.db import MongoInstance
 from nedrexapi.logger import logger as _logger
 
@@ -125,6 +125,7 @@ class BuildRequest(_BaseModel):
         title="Split drugs into subtypes",
         description="Replaces type on Drugs with BiotechDrug or SmallMoleculeDrug as appropriate. Default: `False`",
     )
+    api_key: str = _Field(None, title="API key", description="API key")
 
     class Config:
         extra = "forbid"
@@ -163,6 +164,8 @@ async def graph_builder(background_tasks: _BackgroundTasks, build_request: Build
         // exp = experimental, pred = predicted, orth = orthology
         ppi_evidence = ['exp', 'ortho', 'pred']
     """
+    check_api_key(build_request.api_key)
+
     valid_taxid = [9606]
     valid_drug_groups = [
         "approved",
@@ -218,6 +221,8 @@ async def graph_builder(background_tasks: _BackgroundTasks, build_request: Build
         build_request.split_drug_types = False
 
     query = dict(build_request)
+    query.pop("api_key")
+    print(query)
 
     with _GRAPH_COLL_LOCK:
         result = _GRAPH_COLL.find_one(query)
@@ -266,13 +271,14 @@ async def graph_builder(background_tasks: _BackgroundTasks, build_request: Build
     },
     summary="Graph details",
 )
-def graph_details(uid: str):
+def graph_details(uid: str, api_key: str = None):
     """
     Returns the details of the graph with the given UID,
     including the original query parameters and the status of the build (`submitted`, `building`, `failed`, or
     `completed`).
     If the build fails, then these details will contain the error message.
     """
+    check_api_key(api_key)
     data = _GRAPH_COLL.find_one({"uid": uid})
 
     if data:
@@ -283,10 +289,11 @@ def graph_details(uid: str):
 
 
 @router.get("/download/{uid}.graphml", summary="Graph download")
-def graph_download(uid: str):
+def graph_download(uid: str, api_key: str = None):
     """
     Returns the graph with the given `uid` in GraphML format.
     """
+    check_api_key(api_key)
     data = _GRAPH_COLL.find_one({"uid": uid})
 
     if data and data["status"] == "completed":
@@ -299,12 +306,15 @@ def graph_download(uid: str):
 
 
 @router.get("/download/{uid}/{fname}.graphml", summary="Graph download")
-def graph_download_ii(fname: str, uid: str):
+def graph_download_ii(fname: str, uid: str, api_key: str = None):
     """
     Returns the graph with the given `uid` in GraphML format.
     The `fname` path parameter can be anything a user desires, and is used simply to allow a user to download the
     graph with their desired filename.
     """
+    # TODO: Consider having the api_key submitted via body rather than query parameter, as
+    # the former will affect simplicity of 'wget' commands
+    check_api_key(api_key)
     data = _GRAPH_COLL.find_one({"uid": uid})
 
     if data and data["status"] == "completed":
