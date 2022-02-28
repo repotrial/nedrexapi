@@ -100,7 +100,14 @@ def list_attributes(t: str):
 
 
 @router.get("/{t}/attributes/{attribute}/{format}")
-def get_attribute_values(t: str, attribute: str, format: str):
+def get_attribute_values(t: str, attribute: str, format: str, api_key: str = None):
+    if t in {"drug", "drug_has_target", "gene_associated_with_disorder"}:
+        kr = APIKeyRequest(api_key=api_key)
+        if api_key_verify(kr) is False:
+            raise _HTTPException(
+                status_code=401, detail=f"API key authentication required to access the {t} collection"
+            )
+
     if t in config["api.node_collections"]:
         results = [
             {"primaryDomainId": i["primaryDomainId"], attribute: i.get(attribute)} for i in MongoInstance.DB()[t].find()
