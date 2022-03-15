@@ -1,5 +1,6 @@
 from csv import DictWriter as _DictWriter
 from io import StringIO as _StringIO
+from typing import Optional
 
 from cachetools import LRUCache as _LRUCache, cached as _cached  # type: ignore
 from fastapi import APIRouter as _APIRouter, HTTPException as _HTTPException, Response as _Response, Query as _Query
@@ -138,23 +139,46 @@ def get_attribute_values(t: str, attribute: str, format: str, api_key: str = Non
         return _Response(content=string.getvalue(), media_type="plain/text")
 
 
-@router.get("/{t}/attributes_v2/{format}", summary="Get collection member attribute values")
-def get_node_attribute_values(t: str, format: str, ar: AttributeRequest = DEFAULT_ATTRIBUTE_REQUEST):
+@router.get("/{t}/attributes/{format}", summary="Get collection member attribute values")
+def get_node_attribute_values(
+    t: str,
+    format: str,
+    attribute: list[str] = _Query(
+        None,
+        description=(
+            "Attribute(s) requested. "
+            "Multiple attributes can be specified (e.g., `attribute=domainIds&attribute=primaryDomainId)`",
+        ),
+    ),
+    node_id: list[str] = _Query(
+        None,
+        description=(
+            "Node IDs to collect attribute values for. "
+            "Multiple node IDs can be specified (e.g., `node_id=<id_1>&node_id=<id_2>`)"
+        ),
+    ),
+    api_key: Optional[str] = _Query(None, description="API key, required to retrieve data about certain data types"),
+):
+    # Singular is used for arguments because this makes sense to a user.
+    # Aliasing to plural here as node_id and attribute are actually lists of 1+ strings.
+    node_ids = node_id
+    attributes = attribute
+
     if t not in config.get("api.node_collections"):
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
-    if ar.attributes is None:
+    if attributes is None:
         raise _HTTPException(status_code=404, detail="No attribute(s) requested")
-    if ar.node_ids is None:
+    if node_ids is None:
         raise _HTTPException(status_code=404, detail="No node(s) requested")
 
     # NOTE: Only need a special case for drugs because this route only gives access to nodes (not edges).
     if t in config["api.protected_nodes"]:
-        check_api_key(ar.api_key)
+        check_api_key(api_key)
 
-    query = {"primaryDomainId": {"$in": ar.node_ids}}
+    query = {"primaryDomainId": {"$in": node_ids}}
 
     results = [
-        {"primaryDomainId": i["primaryDomainId"], **{attribute: i.get(attribute) for attribute in ar.attributes}}
+        {"primaryDomainId": i["primaryDomainId"], **{attr: i.get(attr) for attr in attributes}}
         for i in MongoInstance.DB()[t].find(query)
     ]
 
