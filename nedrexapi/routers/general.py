@@ -4,7 +4,6 @@ from typing import Optional
 
 from cachetools import LRUCache as _LRUCache, cached as _cached  # type: ignore
 from fastapi import APIRouter as _APIRouter, HTTPException as _HTTPException, Response as _Response, Query as _Query
-from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.db import MongoInstance
 from nedrexapi.common import check_api_key
@@ -13,16 +12,6 @@ from nedrexapi.config import config
 router = _APIRouter()
 
 
-class AttributeRequest(_BaseModel):
-    node_ids: list[str] = _Field(None, title="Primary domain IDs of nodes")
-    attributes: list[str] = _Field(None, title="Attributes requested")
-    api_key: str = _Field(None, title="API key (only required to access some data")
-
-    class Config:
-        extra = "forbid"
-
-
-DEFAULT_ATTRIBUTE_REQUEST = AttributeRequest()
 DEFAULT_QUERY = _Query(None)
 
 
@@ -143,26 +132,26 @@ def get_attribute_values(t: str, attribute: str, format: str, api_key: str = Non
 def get_node_attribute_values(
     t: str,
     format: str,
-    attribute: list[str] = _Query(
+    attributes: list[str] = _Query(
         None,
         description=(
             "Attribute(s) requested. "
             "Multiple attributes can be specified (e.g., `attribute=domainIds&attribute=primaryDomainId)`"
         ),
+        alias="attribute",
     ),
-    node_id: list[str] = _Query(
+    node_ids: list[str] = _Query(
         None,
         description=(
             "Node IDs to collect attribute values for. "
             "Multiple node IDs can be specified (e.g., `node_id=<id_1>&node_id=<id_2>`)"
         ),
+        alias="node_id",
     ),
     api_key: Optional[str] = _Query(None, description="API key, required to retrieve data about certain data types"),
 ):
     # Singular is used for arguments because this makes sense to a user.
     # Aliasing to plural here as node_id and attribute are actually lists of 1+ strings.
-    node_ids = node_id
-    attributes = attribute
 
     if t not in config.get("api.node_collections"):
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
