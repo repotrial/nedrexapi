@@ -1,7 +1,7 @@
 from collections import defaultdict as _defaultdict
 from itertools import chain as _chain
 
-from fastapi import APIRouter as _APIRouter
+from fastapi import APIRouter as _APIRouter, Query as _Query
 from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.db import MongoInstance
@@ -22,11 +22,20 @@ class ProteinSeededRequest(_BaseModel):
 
 
 @router.get("/get_encoded_proteins")
-def get_encoded_proteins(sr: GeneSeededRequest):
+def get_encoded_proteins(
+    genes: list[str] = _Query(
+        None,
+        title="Genes",
+        description=(
+            "Gene(s) to get relationships for. " "Multiple genes can be specified (e.g., gene=entrez.1&gene=entrez.2)"
+        ),
+        alias="gene",
+    )
+):
     """
     Given a set of seed genes, this route returns the proteins encoded by those genes as a hash map.
     """
-    genes = [f"entrez.{i}" if not i.startswith("entrez") else i for i in sr.genes]
+    genes = [f"entrez.{i}" if not i.startswith("entrez") else i for i in genes]
 
     coll = MongoInstance.DB()["protein_encoded_by_gene"]
     query = {"targetDomainId": {"$in": genes}}
