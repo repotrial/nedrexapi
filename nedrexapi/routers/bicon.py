@@ -17,6 +17,7 @@ from fastapi import (
     Response as _Response,
     UploadFile as _UploadFile,
     File as _File,
+    Form as _Form,
 )
 from neo4j import GraphDatabase as _GraphDatabase  # type: ignore
 from pottery import Redlock as _Redlock
@@ -65,13 +66,17 @@ def get_network(query, prefix):
     return outfile
 
 
+# NOTE: Normally, a POST route would use request body to submit JSON parameters.
+#       However, as a file is uploaded, the request body is encoded using multipart/form-data.
+#       Thus, we ask for query parameters in this instance. Alternative could be Form.
+#       See: https://fastapi.tiangolo.com/tutorial/request-forms-and-files/
 @router.post("/submit", summary="BiCoN Submit")
 async def bicon_submit(
     background_tasks: _BackgroundTasks,
     expression_file: _UploadFile = _DEFAULT_FILE,
-    lg_min: int = 10,
-    lg_max: int = 15,
-    network: str = "DEFAULT",
+    lg_min: int = _Form(10),
+    lg_max: int = _Form(15),
+    network: str = _Form("DEFAULT"),
 ):
     """
     Route used to submit a BiCoN job.
@@ -79,6 +84,7 @@ async def bicon_submit(
     For more information on BiCoN, please see
     [this publication by Lazareva *et al.*](https://doi.org/10.1093/bioinformatics/btaa1076)
     """
+
     uid = f"{_uuid4()}"
     file_obj = expression_file.file
     ext = _os.path.splitext(expression_file.filename)[1]
@@ -89,6 +95,8 @@ async def bicon_submit(
     file_obj.seek(0)
 
     query = {"sha256": sha256_hash.hexdigest(), "lg_min": lg_min, "lg_max": lg_max, "network": network}
+    print(query)
+    return uid
 
     with _BICON_COLL_LOCK:
         existing = _BICON_COLL.find_one(query)
