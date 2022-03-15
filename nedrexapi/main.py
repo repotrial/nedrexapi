@@ -45,7 +45,6 @@ For a tutorial on using the API, please consult
     redoc_url="/",
 )
 
-app.include_router(_must.router, tags=["MuST"], prefix="/must")
 app.include_router(_general.router, tags=["General"])
 app.include_router(_disorder.router, prefix="/disorder", tags=["Disorder"])
 app.include_router(_ppi.router, tags=["PPI routes"])
@@ -53,6 +52,7 @@ app.include_router(_relations.router, prefix="/relations", tags=["Relations"])
 app.include_router(_graph.router, prefix="/graph", tags=["Graph"])
 app.include_router(_bicon.router, prefix="/bicon", tags=["BiCoN"])
 app.include_router(_static.router, prefix="/static", tags=["Static"])
+app.include_router(_must.router, tags=["MuST"], prefix="/must")
 app.include_router(_diamond.router, prefix="/diamond", tags=["DIAMOnD"])
 app.include_router(_trustrank.router, prefix="/trustrank", tags=["TrustRank"])
 app.include_router(_closeness.router, prefix="/closeness", tags=["Closeness"])
