@@ -1,7 +1,7 @@
-from fastapi import APIRouter as _APIRouter, HTTPException as _HTTPException
+from typing import Optional
 
+from fastapi import APIRouter as _APIRouter, HTTPException as _HTTPException, Query as _Query
 from pottery import synchronize, RedisDict
-from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.common import _REDIS
 from nedrexapi.db import MongoInstance
@@ -44,171 +44,166 @@ def get_review_statuses():
     return _get_review_statuses()
 
 
-# VDA: Variant Disorder Association
-class VDAFilter(_BaseModel):
-    variant_ids: list[str] = _Field(
+@router.get("/get_variant_disorder_associations", summary="Get variant-disorder associations")
+def get_variant_disorder_associations(
+    variant_ids: Optional[list[str]] = _Query(
         None,
         title="Variant IDs to get variant-disorder relationships for",
         description="Default: `None` (no filtering on variant IDs)",
-    )
-    disorder_ids: list[str] = _Field(
+        alias="variant_id",
+    ),
+    disorder_ids: Optional[list[str]] = _Query(
         None,
         title="Disorder IDs to get variant-disorder relationships for",
         description="Default: `None` (no filtering on disorder IDs)",
-    )
-    review_status: list[str] = _Field(
+        alias="disorder_id",
+    ),
+    review_status: Optional[list[str]] = _Query(
         None,
         title="Review status(es) to include variant disorder relationships for",
         description="Default: `['practice guideline', 'reviewed by expert panel']`",
-    )
-    effects: list[str] = _Field(
+        alias="review_status",
+    ),
+    effects: Optional[list[str]] = _Query(
         None,
         title="Effect(s) to include variant-disorder relationships for",
         description="Default: `['Pathogenic', 'Likely pathogenic', 'Pathogenic/Likely pathogenic']`",
-    )
+        alias="effect",
+    ),
+):
 
-
-DEFAULT_VDA_FILTER = VDAFilter()
-
-
-@router.get("/get_variant_disorder_associations", summary="Get variant-disorder associations")
-def get_variant_disorder_associations(vda_filter: VDAFilter = DEFAULT_VDA_FILTER):
     query = {}
-    if vda_filter.variant_ids is not None:
-        query["sourceDomainId"] = {"$in": vda_filter.variant_ids}
-    if vda_filter.disorder_ids is not None:
-        query["targetDomainId"] = {"$in": vda_filter.disorder_ids}
+    if variant_ids is not None:
+        query["sourceDomainId"] = {"$in": variant_ids}
+    if disorder_ids is not None:
+        query["targetDomainId"] = {"$in": disorder_ids}
 
-    if vda_filter.review_status is None:
+    if review_status is None:
         query["reviewStatus"] = {"$in": ["practice guideline", "reviewed by expert panel"]}
     else:
-        query["reviewStatus"] = {"$in": vda_filter.review_status}
+        query["reviewStatus"] = {"$in": review_status}
 
-    if vda_filter.effects is None:
+    if effects is None:
         query["effects"] = {"$in": ["Pathogenic", "Likely pathogenic", "Pathogenic/Likely pathogenic"]}
     else:
-        query["effects"] = {"$in": vda_filter.effects}
+        query["effects"] = {"$in": effects}
 
     results = list(MongoInstance.DB()["variant_associated_with_disorder"].find(query))
     [i.pop("_id") for i in results]
     return results
 
 
-# VGA: Variant Gene Association
-class VGAFilter(_BaseModel):
-    variant_ids: list[str] = _Field(
+@router.get("/get_variant_gene_associations", summary="Get variant-gene associations")
+def get_variant_gene_associations(
+    variant_ids: Optional[list[str]] = _Query(
         None,
         title="Variant IDs to get variant-gene relationships for",
         description="Default: `None` (no filtering on variant IDs)",
-    )
-    gene_ids: list[str] = _Field(
+        alias="variant_id",
+    ),
+    gene_ids: Optional[list[str]] = _Query(
         None,
         title="Gene IDs to get variant-gene relationships for",
         description="Default: `None` (no filtering on gene IDs)",
-    )
+        alias="gene_id",
+    ),
+):
+    """
+    Gets the variant-gene (V-G) relationships associated with the requested variant(s)/gene(s).
 
+    Note that this function behaves as an AND with respect to the inputs.
+    This means that if you specify variant IDs and gene IDs then you will get VG relationships where the variant is
+    one of the variant IDs specified and the gene is one of the gene IDs specified.
+    """
 
-DEFAULT_VGA_FILTER = VGAFilter()
-
-
-@router.get("/get_variant_gene_associations", summary="Get variant-gene associations")
-def get_variant_gene_associations(vga_filter: VGAFilter = DEFAULT_VGA_FILTER):
     query = {}
-    if vga_filter.variant_ids is not None:
-        query["sourceDomainId"] = {"$in": vga_filter.variant_ids}
-    if vga_filter.gene_ids is not None:
-        query["targetDomainId"] = {"$in": vga_filter.gene_ids}
+    if variant_ids is not None:
+        query["sourceDomainId"] = {"$in": variant_ids}
+    if gene_ids is not None:
+        query["targetDomainId"] = {"$in": gene_ids}
 
     results = list(MongoInstance.DB()["variant_affects_gene"].find(query))
     [i.pop("_id") for i in results]
     return results
 
 
-# VDA: Variant-based disease-associated genes
-class VariantBasedDAG(_BaseModel):
-    disorder_id: str = _Field(
+@router.get("/variant_based_disorder_associated_genes", summary="Get variant-based genes associated with disorder")
+def variant_based_genes_associated_with_disorder(
+    disorder_id: str = _Query(
         None,
         title="Disorder IDs to get variant-disorder relationships for",
         description="Default: `None` (no filtering on disorder IDs)",
-    )
-    review_status: list[str] = _Field(
+        alias="disorder_id",
+    ),
+    review_status: Optional[list[str]] = _Query(
         None,
         title="Review status(es) to include variant disorder relationships for",
         description="Default: `['practice guideline', 'reviewed by expert panel']`",
-    )
-    effects: list[str] = _Field(
+    ),
+    effects: Optional[list[str]] = _Query(
         None,
         title="Effect(s) to include variant-disorder relationships for",
         description="Default: `['Pathogenic', 'Likely pathogenic', 'Pathogenic/Likely pathogenic']`",
-    )
-
-
-DEFAULT_VARIANT_BASED_DAG_QUERY = VariantBasedDAG()
-
-
-@router.get("/variant_based_disorder_associated_genes", summary="Get variant-based genes associated with disorder")
-def variant_based_genes_associated_with_disorder(query: VariantBasedDAG = DEFAULT_VARIANT_BASED_DAG_QUERY):
+        alias="effect",
+    ),
+):
     """
     Identifies genes associated with a disorder, using variants as an intermediary.
     """
-    variant_disorder_filter = VDAFilter()
-
-    if query.disorder_id is None:
+    if disorder_id is None:
         raise _HTTPException(status_code=404, detail="No disorder ID specified")
-    variant_disorder_filter.disorder_ids = [query.disorder_id]
 
-    if query.review_status is not None:
-        variant_disorder_filter.review_status = query.review_status
-    if query.effects is not None:
-        variant_disorder_filter.effects = query.effects
+    variant_ids = [
+        doc["sourceDomainId"]
+        for doc in get_variant_disorder_associations(
+            variant_ids=None, disorder_ids=[disorder_id], review_status=review_status, effects=effects
+        )
+    ]
 
-    variant_ids = [doc["sourceDomainId"] for doc in get_variant_disorder_associations(variant_disorder_filter)]
-
-    variant_gene_filter = VGAFilter(variant_ids=variant_ids)
-
-    return sorted(set(doc["targetDomainId"] for doc in get_variant_gene_associations(variant_gene_filter)))
-
-
-# Variant-based gene-associated disorders
-class VariantBasedGAD(_BaseModel):
-    gene_id: str = _Field(
-        None,
-        title="Disorder IDs to get variant-disorder relationships for",
-        description="Default: `None` (no filtering on disorder IDs)",
-    )
-    review_status: list[str] = _Field(
-        None,
-        title="Review status(es) to include variant disorder relationships for",
-        description="Default: `['practice guideline', 'reviewed by expert panel']`",
-    )
-    effects: list[str] = _Field(
-        None,
-        title="Effect(s) to include variant-disorder relationships for",
-        description="Default: `['Pathogenic', 'Likely pathogenic', 'Pathogenic/Likely pathogenic']`",
-    )
-
-
-DEFAULT_VARIANT_BASED_GAD_QUERY = VariantBasedGAD()
+    return sorted(set(doc["targetDomainId"] for doc in get_variant_gene_associations(variant_ids, gene_ids=None)))
 
 
 @router.get("/variant_based_gene_associated_disorders", summary="Get variant-based disorders associated with a gene")
-def variant_based_disorders_associated_with_gene(query: VariantBasedGAD = DEFAULT_VARIANT_BASED_GAD_QUERY):
+def variant_based_disorders_associated_with_gene(
+    gene_id: str = _Query(
+        None,
+        title="Disorder IDs to get variant-disorder relationships for",
+        description="Default: `None` (no filtering on disorder IDs)",
+    ),
+    review_status: Optional[list[str]] = _Query(
+        None,
+        title="Review status(es) to include variant disorder relationships for",
+        description="Default: `['practice guideline', 'reviewed by expert panel']`",
+    ),
+    effects: Optional[list[str]] = _Query(
+        None,
+        title="Effect(s) to include variant-disorder relationships for",
+        description="Default: `['Pathogenic', 'Likely pathogenic', 'Pathogenic/Likely pathogenic']`",
+        alias="effect",
+    ),
+):
     """
     Searches NeDRexDB for disorders associated with a gene, using variants as an intermediary.
     """
-
-    if query.gene_id is None:
+    if gene_id is None:
         raise _HTTPException(status_code=404, detail="No gene ID specified")
-    variant_gene_filter = VGAFilter(gene_ids=[query.gene_id])
 
-    variant_ids = [doc["sourceDomainId"] for doc in get_variant_gene_associations(variant_gene_filter)]
+    variant_ids = [
+        doc["sourceDomainId"]
+        for doc in get_variant_gene_associations(
+            gene_ids=[gene_id],
+            variant_ids=None,
+        )
+    ]
 
-    variant_disorder_filter = VDAFilter()
-    variant_disorder_filter.variant_ids = variant_ids
-
-    if query.review_status is not None:
-        variant_disorder_filter.review_status = query.review_status
-    if query.effects is not None:
-        variant_disorder_filter.effects = query.effects
-
-    return sorted(set(doc["targetDomainId"] for doc in get_variant_disorder_associations(variant_disorder_filter)))
+    return sorted(
+        set(
+            doc["targetDomainId"]
+            for doc in get_variant_disorder_associations(
+                variant_ids=variant_ids,
+                review_status=review_status,
+                effects=effects,
+                disorder_ids=None,
+            )
+        )
+    )
