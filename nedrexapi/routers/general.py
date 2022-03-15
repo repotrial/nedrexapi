@@ -147,7 +147,7 @@ def get_node_attribute_values(
         None,
         description=(
             "Attribute(s) requested. "
-            "Multiple attributes can be specified (e.g., `attribute=domainIds&attribute=primaryDomainId)`",
+            "Multiple attributes can be specified (e.g., `attribute=domainIds&attribute=primaryDomainId)`"
         ),
     ),
     node_id: list[str] = _Query(
