@@ -95,8 +95,6 @@ async def bicon_submit(
     file_obj.seek(0)
 
     query = {"sha256": sha256_hash.hexdigest(), "lg_min": lg_min, "lg_max": lg_max, "network": network}
-    print(query)
-    return uid
 
     with _BICON_COLL_LOCK:
         existing = _BICON_COLL.find_one(query)
