@@ -21,7 +21,7 @@ DEFAULT_QUERY = _Query(None)
     summary="List node collections",
 )
 def list_node_collections():
-    return config["api.node_collections"]
+    return sorted(config["api.node_collections"])
 
 
 @router.get(
@@ -50,7 +50,7 @@ def list_node_collections():
     summary="List edge collections",
 )
 def list_edge_collections():
-    return config["api.edge_collections"]
+    return sorted(config["api.edge_collections"])
 
 
 @router.get(
@@ -149,6 +149,8 @@ def get_node_attribute_values(
         alias="node_id",
     ),
     api_key: Optional[str] = _Query(None, description="API key, required to retrieve data about certain data types"),
+    offset: Optional[int] = _Query(None, description="Offset to use (if paginated queries are desired)"),
+    limit: Optional[int] = _Query(None, description="Limit to use (if paginated queries are desired)"),
 ):
     # Singular is used for arguments because this makes sense to a user.
     # Aliasing to plural here as node_id and attribute are actually lists of 1+ strings.
@@ -156,19 +158,28 @@ def get_node_attribute_values(
     if t not in config.get("api.node_collections"):
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
     if attributes is None:
-        raise _HTTPException(status_code=404, detail="No attribute(s) requested")
-    if node_ids is None:
-        raise _HTTPException(status_code=404, detail="No node(s) requested")
+        # get all attributes for the type
+        attributes = list_attributes(t)
 
     # NOTE: Only need a special case for drugs because this route only gives access to nodes (not edges).
     if t in config["api.protected_nodes"]:
         check_api_key(api_key)
 
-    query = {"primaryDomainId": {"$in": node_ids}}
+    if node_ids is None:
+        query = {}
+    else:
+        query = {"primaryDomainId": {"$in": node_ids}}
+    kwargs = {}
+    if offset is not None:
+        kwargs["skip"] = offset
+    if limit is not None:
+        kwargs["limit"] = limit
+
+    print(kwargs)
 
     results = [
         {"primaryDomainId": i["primaryDomainId"], **{attr: i.get(attr) for attr in attributes}}
-        for i in MongoInstance.DB()[t].find(query)
+        for i in MongoInstance.DB()[t].find(query, **kwargs)
     ]
 
     if format == "json":
@@ -230,7 +241,7 @@ def collection_details(t: str):
     summary="List all collection items",
 )
 @_cached(cache=_LRUCache(maxsize=32))
-def list_all_collection_items(t: str, api_key: str = None):
+def list_all_collection_items(t: str, api_key: str = None, offset: int = None, limit: int = None):
     """
     Returns an array of all items in the collection `t`.
     Items are returned as JSON, and have all of their attributes (and corresponding values).
@@ -240,9 +251,17 @@ def list_all_collection_items(t: str, api_key: str = None):
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
 
     if t in config["api.protected_nodes"] + config["api.protected_edges"]:
+        print(f"{t} is PROTECTED")
         check_api_key(api_key)
+        print("We good")
 
-    return [{k: v for k, v in i.items() if k != "_id"} for i in MongoInstance.DB()[t].find()]
+    kwargs = {}
+    if offset is not None:
+        kwargs["skip"] = offset
+    if limit is not None:
+        kwargs["limit"] = limit
+
+    return [{k: v for k, v in i.items() if k != "_id"} for i in MongoInstance.DB()[t].find(**kwargs)]
 
 
 # Helper function for ID mapper
