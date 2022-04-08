@@ -84,13 +84,26 @@ def generate_validation_static_files():
     _STATIC_VALIDATION_LOCK.release()
 
 
+def invalidate_expired_keys() -> None:
+    to_remove = []
+
+    for entry in _API_KEY_COLLECTION.find():
+        if entry["expiry"] < _datetime.datetime.utcnow():
+            to_remove.append(entry["_id"])
+    
+    for _id in to_remove:
+        result = _API_KEY_COLLECTION.delete_one({"_id": _id})
+
+
 def check_api_key(api_key: Optional[str]) -> bool:
+    invalidate_expired_keys()
+
     if api_key is None:
         raise _HTTPException(status_code=401, detail="A valid API key is required to access the requested data")
 
     entry = _API_KEY_COLLECTION.find_one({"key": api_key})
     if not entry:
-        raise _HTTPException(status_code=401, detail="An invalid API key was supplied")
+        raise _HTTPException(status_code=401, detail="An invalid API key was supplied. If they key has worked before, it may have expired or been revoked.")
     elif entry["expiry"] < _datetime.datetime.utcnow():
         raise _HTTPException(status_code=401, detail="An expired API key was supplied")
 

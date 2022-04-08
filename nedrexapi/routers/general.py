@@ -89,7 +89,7 @@ def list_attributes(t: str):
     return attributes
 
 
-@router.get("/{t}/attributes/{attribute}/{format}")
+@router.get("/{t}/attributes/{attribute}/{format}", summary="Get attribute values")
 def get_attribute_values(t: str, attribute: str, format: str, api_key: str = None):
     if t in config["api.protected_nodes"] + config["api.protected_edges"]:
         check_api_key(api_key)
@@ -251,15 +251,17 @@ def list_all_collection_items(t: str, api_key: str = None, offset: int = None, l
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
 
     if t in config["api.protected_nodes"] + config["api.protected_edges"]:
-        print(f"{t} is PROTECTED")
         check_api_key(api_key)
-        print("We good")
+
+    if limit is None:
+        limit = 10_000
+    elif limit > 10_000:
+        raise _HTTPException(status_code=404, detail=f"Limit cannot be greater than 10,000")
 
     kwargs = {}
     if offset is not None:
         kwargs["skip"] = offset
-    if limit is not None:
-        kwargs["limit"] = limit
+    kwargs["limit"] = limit
 
     return [{k: v for k, v in i.items() if k != "_id"} for i in MongoInstance.DB()[t].find(**kwargs)]
 
