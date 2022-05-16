@@ -30,11 +30,8 @@ class MongoInstance:
         return cls._CLIENT
 
     @classmethod
-    def connect(cls, version):
-        if version not in ("live", "dev"):
-            raise ValueError(f"version given ({version!r}) should be 'live' or 'dev'")
-
-        port = _config[f"db.{version}.mongo_port"]
+    def connect(cls):
+        port = _config[f"db.mongo_port"]
         host = "localhost"
         dbname = _config["db.mongo_db"]
 

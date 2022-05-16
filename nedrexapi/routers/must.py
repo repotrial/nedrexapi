@@ -16,7 +16,7 @@ from nedrexapi.config import config as _config
 from nedrexapi.common import get_api_collection as _get_api_collection, _REDIS
 from nedrexapi.logger import logger as _logger
 
-_NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_config['db.dev.neo4j_bolt_port']}")
+_NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_config['db.neo4j_bolt_port']}")
 
 _MUST_COLL = _get_api_collection("must_")
 _MUST_DIR = _Path(_config["api.directories.data"]) / "must_"

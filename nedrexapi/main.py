@@ -4,7 +4,7 @@ from nedrexapi.db import MongoInstance, create_directories
 from nedrexapi.config import parse_config
 
 parse_config(".config.toml")
-MongoInstance.connect("dev")
+MongoInstance.connect()
 create_directories()
 
 from nedrexapi.routers import (  # noqa: E402
@@ -22,6 +22,7 @@ from nedrexapi.routers import (  # noqa: E402
     validation as _validation,
     admin as _admin,
     variant as _variant,
+    neo4j as _neo4j,
 )
 
 
@@ -59,3 +60,4 @@ app.include_router(_closeness.router, prefix="/closeness", tags=["Closeness"])
 app.include_router(_validation.router, prefix="/validation", tags=["Validation"])
 app.include_router(_admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(_variant.router, prefix="/variants", tags=["Variants"])
+app.include_router(_neo4j.router, prefix="/neo4j", tags=["Neo4j"])
