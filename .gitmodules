@@ -3,4 +3,4 @@
 	url = git@github.com:repotrial/MultiSteinerBackend.git
 [submodule "scripts/nedrex_validation"]
 	path = scripts/nedrex_validation
-	url = https://github.com/repotrial/nedrex_validation.git
+	url = git@github.com:repotrial/nedrex_validation.git
