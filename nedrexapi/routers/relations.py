@@ -82,7 +82,7 @@ def get_drugs_targetting_proteins(proteins: list[str] = PROTEIN_QUERY, api_key: 
     if api_key is None:
         raise _HTTPException(404, "API key is required for this route")
     check_api_key(api_key)
-    
+
     proteins = [f"uniprot.{i}" if not i.startswith("uniprot.") else i for i in proteins]
 
     coll = MongoInstance.DB()["drug_has_target"]

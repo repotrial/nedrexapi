@@ -1,8 +1,10 @@
 import datetime as _datetime
 import subprocess as _subprocess
+from functools import wraps
+from inspect import getfullargspec
 from typing import Optional
 
-from fastapi import HTTPException as _HTTPException
+from fastapi import HTTPException as _HTTPException, Header as _Header
 from pottery import RedisDict as _RedisDict, Redlock as _Redlock
 from pymongo import MongoClient as _MongoClient  # type: ignore
 from redis import Redis as _Redis  # type: ignore
@@ -19,6 +21,8 @@ _STATUS = _RedisDict(redis=_REDIS, key="static-file-status")
 
 _STATIC_RANKING_LOCK = _Redlock(key="static-ranking-lock", masters={_REDIS}, auto_release_time=int(1e10))
 _STATIC_VALIDATION_LOCK = _Redlock(key="static-validation-lock", masters={_REDIS}, auto_release_time=int(1e10))
+
+_API_KEY_HEADER_ARG = _Header(default=None, include_in_schema=_config["api.require_api_keys"])
 
 
 def get_api_collection(coll_name):
@@ -90,7 +94,7 @@ def invalidate_expired_keys() -> None:
     for entry in _API_KEY_COLLECTION.find():
         if entry["expiry"] < _datetime.datetime.utcnow():
             to_remove.append(entry["_id"])
-    
+
     for _id in to_remove:
         result = _API_KEY_COLLECTION.delete_one({"_id": _id})
 
@@ -99,12 +103,35 @@ def check_api_key(api_key: Optional[str]) -> bool:
     invalidate_expired_keys()
 
     if api_key is None:
-        raise _HTTPException(status_code=401, detail="A valid API key is required to access the requested data")
+        raise _HTTPException(status_code=401, detail="An API key is required to access the requested data")
 
     entry = _API_KEY_COLLECTION.find_one({"key": api_key})
     if not entry:
-        raise _HTTPException(status_code=401, detail="An invalid API key was supplied. If they key has worked before, it may have expired or been revoked.")
+        raise _HTTPException(
+            status_code=401,
+            detail="An invalid API key was supplied. If they key has worked before, it may have expired or been revoked.",
+        )
     elif entry["expiry"] < _datetime.datetime.utcnow():
         raise _HTTPException(status_code=401, detail="An expired API key was supplied")
 
     return True
+
+
+def check_api_key_decorator(func):
+    @wraps(func)
+    def new(*args, **kwargs):
+        if _config["api.require_api_keys"] != True:
+            return func(*args, **kwargs)
+
+        params = dict(kwargs)
+        for k, v in zip(getfullargspec(func).args, args):
+            params[k] = v
+
+        if "x_api_key" in params:
+            check_api_key(params["x_api_key"])
+        else:
+            pass
+        print(args, kwargs)
+        return func(*args, **kwargs)
+
+    return new

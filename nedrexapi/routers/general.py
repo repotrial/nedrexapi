@@ -6,7 +6,7 @@ from cachetools import LRUCache as _LRUCache, cached as _cached  # type: ignore
 from fastapi import APIRouter as _APIRouter, HTTPException as _HTTPException, Response as _Response, Query as _Query
 
 from nedrexapi.db import MongoInstance
-from nedrexapi.common import check_api_key
+from nedrexapi.common import check_api_key_decorator, _API_KEY_HEADER_ARG
 from nedrexapi.config import config
 
 router = _APIRouter()
@@ -20,7 +20,8 @@ DEFAULT_QUERY = _Query(None)
     responses={200: {"content": {"application/json": {"example": ["disorder", "drug", "gene", "pathway", "protein"]}}}},
     summary="List node collections",
 )
-def list_node_collections():
+@check_api_key_decorator
+def list_node_collections(x_api_key: str = _API_KEY_HEADER_ARG):
     return sorted(config["api.node_collections"])
 
 
@@ -49,7 +50,8 @@ def list_node_collections():
     },
     summary="List edge collections",
 )
-def list_edge_collections():
+@check_api_key_decorator
+def list_edge_collections(x_api_key: str = _API_KEY_HEADER_ARG):
     return sorted(config["api.edge_collections"])
 
 
@@ -78,7 +80,8 @@ def list_edge_collections():
     summary="List collection attributes",
 )
 @_cached(cache=_LRUCache(maxsize=32))
-def list_attributes(t: str):
+@check_api_key_decorator
+def list_attributes(t: str, x_api_key: str = _API_KEY_HEADER_ARG):
     if t not in config["api.node_collections"] + config["api.edge_collections"]:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
 
@@ -90,10 +93,8 @@ def list_attributes(t: str):
 
 
 @router.get("/{t}/attributes/{attribute}/{format}", summary="Get attribute values")
-def get_attribute_values(t: str, attribute: str, format: str, api_key: str = None):
-    if t in config["api.protected_nodes"] + config["api.protected_edges"]:
-        check_api_key(api_key)
-
+@check_api_key_decorator
+def get_attribute_values(t: str, attribute: str, format: str, x_api_key: str = _API_KEY_HEADER_ARG):
     if t in config["api.node_collections"]:
         results = [
             {"primaryDomainId": i["primaryDomainId"], attribute: i.get(attribute)} for i in MongoInstance.DB()[t].find()
@@ -129,6 +130,7 @@ def get_attribute_values(t: str, attribute: str, format: str, api_key: str = Non
 
 
 @router.get("/{t}/attributes/{format}", summary="Get collection member attribute values")
+@check_api_key_decorator
 def get_node_attribute_values(
     t: str,
     format: str,
@@ -148,9 +150,9 @@ def get_node_attribute_values(
         ),
         alias="node_id",
     ),
-    api_key: Optional[str] = _Query(None, description="API key, required to retrieve data about certain data types"),
     offset: Optional[int] = _Query(None, description="Offset to use (if paginated queries are desired)"),
     limit: Optional[int] = _Query(None, description="Limit to use (if paginated queries are desired)"),
+    x_api_key: str = _API_KEY_HEADER_ARG,
 ):
     # Singular is used for arguments because this makes sense to a user.
     # Aliasing to plural here as node_id and attribute are actually lists of 1+ strings.
@@ -160,10 +162,6 @@ def get_node_attribute_values(
     if attributes is None:
         # get all attributes for the type
         attributes = list_attributes(t)
-
-    # NOTE: Only need a special case for drugs because this route only gives access to nodes (not edges).
-    if t in config["api.protected_nodes"]:
-        check_api_key(api_key)
 
     if node_ids is None:
         query = {}
@@ -220,7 +218,8 @@ def get_node_attribute_values(
     summary="Collection details",
 )
 @_cached(cache=_LRUCache(maxsize=32))
-def collection_details(t: str):
+@check_api_key_decorator
+def collection_details(t: str, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns a hash map of the details for the collection, `t`, including size (in bytes) and number of items.
     A collection a MongoDB concept that is analagous to a table in a RDBMS.
@@ -241,7 +240,8 @@ def collection_details(t: str):
     summary="List all collection items",
 )
 @_cached(cache=_LRUCache(maxsize=32))
-def list_all_collection_items(t: str, api_key: str = None, offset: int = None, limit: int = None):
+@check_api_key_decorator
+def list_all_collection_items(t: str, offset: int = None, limit: int = None, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns an array of all items in the collection `t`.
     Items are returned as JSON, and have all of their attributes (and corresponding values).
@@ -249,9 +249,6 @@ def list_all_collection_items(t: str, api_key: str = None, offset: int = None, l
     """
     if t not in config["api.node_collections"] + config["api.edge_collections"]:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
-
-    if t in config["api.protected_nodes"] + config["api.protected_edges"]:
-        check_api_key(api_key)
 
     if limit is None:
         limit = 10_000
@@ -274,7 +271,8 @@ def get_primary_id(supplied_id, coll):
 
 
 @router.get("/get_by_id/{t}", summary="Get by ID")
-def get_by_id(t: str, q: list[str] = DEFAULT_QUERY, api_key: str = None):
+@check_api_key_decorator
+def get_by_id(t: str, q: list[str] = DEFAULT_QUERY, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns an array of items with one or more of the specified query IDs, `q`, from a collection, `t`.
     The query IDs are of the form `{database}.{accession}`, for example `uniprot.Q9UBT6`.
@@ -286,9 +284,6 @@ def get_by_id(t: str, q: list[str] = DEFAULT_QUERY, api_key: str = None):
 
     if t not in config["api.node_collections"]:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
-
-    if t in config["api.protected_nodes"]:
-        check_api_key(api_key)
 
     result = MongoInstance.DB()[t].find({"domainIds": {"$in": q}})
     result = [{k: v for k, v in i.items() if not k == "_id"} for i in result]
@@ -303,7 +298,8 @@ def get_by_id(t: str, q: list[str] = DEFAULT_QUERY, api_key: str = None):
     },
     summary="ID map",
 )
-def id_map(t: str, q: list[str] = DEFAULT_QUERY):
+@check_api_key_decorator
+def id_map(t: str, q: list[str] = DEFAULT_QUERY, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns a hash map of `{user-supplied-id: [primaryDomainId]}` for a set of user-specified identifiers in a
     user-specified collection, `t`.

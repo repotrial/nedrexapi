@@ -66,9 +66,13 @@ def get_licence():
     return _Response(urlopen(url).read(), media_type="text/plain")
 
 
-@router.get("/lengths.map", summary="Lengths map", description="Returns the lengths.map file, required for sum functions in the NeDRex platform")
+@router.get(
+    "/lengths.map",
+    summary="Lengths map",
+    description="Returns the lengths.map file, required for sum functions in the NeDRex platform",
+)
 def lengths_map():
-    with open(_STATIC_DIR/"lengths.map") as f:
+    with open(_STATIC_DIR / "lengths.map") as f:
         lengths_map = f.read()
-    
+
     return _Response(lengths_map, media_type="text/plain")

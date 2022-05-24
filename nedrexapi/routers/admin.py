@@ -1,7 +1,12 @@
 import datetime
 import secrets
 
-from fastapi import APIRouter as _APIRouter, BackgroundTasks as _BackgroundTasks, HTTPException as _HTTPException
+from fastapi import (
+    APIRouter as _APIRouter,
+    BackgroundTasks as _BackgroundTasks,
+    HTTPException as _HTTPException,
+    Header as _Header,
+)
 from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.common import get_api_collection, check_api_key
@@ -59,24 +64,23 @@ class APIKeyGenRequest(_BaseModel):
     accept_eula: bool = _Field(None, title="Accept EULA", description="Set to True if you accept the EULA.")
 
 
-class APIKeyRequest(_BaseModel):
-    api_key: str = _Field(None, title="API key", description="API key")
-
-
 DEFAULT_APIKG = APIKeyGenRequest()
-DEFAULT_APIKR = APIKeyRequest()
 
 
 API_KEY_COLLECTION = get_api_collection("api_keys_")
 
 
 @router.get("/api_key/verify", include_in_schema=False)
-def api_key_verify(akr: APIKeyRequest = DEFAULT_APIKR):
-    if not getattr(akr, "api_key", None):
+def api_key_verify(
+    x_api_key: str = _Header(
+        default=None,
+    )
+):
+    if x_api_key is None:
         raise _HTTPException(status_code=404, detail="No API key provided")
 
     try:
-        check_api_key(akr.api_key)
+        check_api_key(x_api_key)
         return True
     except _HTTPException:
         return False
@@ -100,11 +104,15 @@ def api_key_generate(kgr: APIKeyGenRequest = DEFAULT_APIKG):
 
 
 @router.post("/api_key/revoke", include_in_schema=False)
-def api_key_revoke(akr: APIKeyRequest = DEFAULT_APIKR):
-    if not getattr(akr, "api_key", None):
+def api_key_revoke(
+    x_api_key: str = _Header(
+        default=None,
+    )
+):
+    if x_api_key is None:
         raise _HTTPException(status_code=404, detail="No API key provided")
 
-    entry = API_KEY_COLLECTION.find_one({"key": akr.api_key})
+    entry = API_KEY_COLLECTION.find_one({"key": x_api_key})
 
     if not entry:
         return {"detail": "API key is not valid"}
@@ -112,7 +120,7 @@ def api_key_revoke(akr: APIKeyRequest = DEFAULT_APIKR):
     if entry["revokable"] is False:
         return {"detail": "API key given is not revokable via this route"}
 
-    API_KEY_COLLECTION.delete_one({"key": akr.api_key})
+    API_KEY_COLLECTION.delete_one({"key": x_api_key})
     return {"detail": "Success"}
 
 
