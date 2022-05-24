@@ -96,7 +96,7 @@ def invalidate_expired_keys() -> None:
             to_remove.append(entry["_id"])
 
     for _id in to_remove:
-        result = _API_KEY_COLLECTION.delete_one({"_id": _id})
+        _API_KEY_COLLECTION.delete_one({"_id": _id})
 
 
 def check_api_key(api_key: Optional[str]) -> bool:
@@ -109,7 +109,7 @@ def check_api_key(api_key: Optional[str]) -> bool:
     if not entry:
         raise _HTTPException(
             status_code=401,
-            detail="An invalid API key was supplied. If they key has worked before, it may have expired or been revoked.",
+            detail="Invalid API key supplied. If they key has worked before, it may have expired or been revoked.",
         )
     elif entry["expiry"] < _datetime.datetime.utcnow():
         raise _HTTPException(status_code=401, detail="An expired API key was supplied")
@@ -120,7 +120,7 @@ def check_api_key(api_key: Optional[str]) -> bool:
 def check_api_key_decorator(func):
     @wraps(func)
     def new(*args, **kwargs):
-        if _config["api.require_api_keys"] != True:
+        if _config["api.require_api_keys"] is not True:
             return func(*args, **kwargs)
 
         params = dict(kwargs)

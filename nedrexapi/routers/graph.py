@@ -10,7 +10,6 @@ from fastapi import (
     BackgroundTasks as _BackgroundTasks,
     HTTPException as _HTTPException,
     Response as _Response,
-    Header as _Header,
 )
 from pottery import Redlock as _Redlock
 from pydantic import BaseModel as _BaseModel, Field as _Field

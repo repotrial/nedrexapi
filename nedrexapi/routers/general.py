@@ -253,7 +253,7 @@ def list_all_collection_items(t: str, offset: int = None, limit: int = None, x_a
     if limit is None:
         limit = 10_000
     elif limit > 10_000:
-        raise _HTTPException(status_code=404, detail=f"Limit cannot be greater than 10,000")
+        raise _HTTPException(status_code=404, detail="Limit cannot be greater than 10,000")
 
     kwargs = {}
     if offset is not None:
