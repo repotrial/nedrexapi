@@ -10,7 +10,13 @@ from pottery import Redlock as _Redlock
 from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.config import config as _config
-from nedrexapi.common import get_api_collection as _get_api_collection, generate_validation_static_files, _REDIS
+from nedrexapi.common import (
+    check_api_key_decorator,
+    get_api_collection as _get_api_collection,
+    generate_validation_static_files,
+    _API_KEY_HEADER_ARG,
+    _REDIS,
+)
 from nedrexapi.logger import logger
 
 router = _APIRouter()
@@ -58,7 +64,8 @@ def standardize_drugbank_score_list(lst):
 
 # Status route, shared by all validation reqs
 @router.get("/status")
-def validation_status(uid: str):
+@check_api_key_decorator
+def validation_status(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     query = {"uid": uid}
     result = _VALIDATION_COLL.find_one(query)
     if not result:
@@ -86,8 +93,11 @@ DEFAULT_JOINT_VALIDATION_REQUEST = JointValidationRequest()
 
 
 @router.post("/joint")
+@check_api_key_decorator
 def joint_validation_submit(
-    background_tasks: _BackgroundTasks, jvr: JointValidationRequest = DEFAULT_JOINT_VALIDATION_REQUEST
+    background_tasks: _BackgroundTasks,
+    jvr: JointValidationRequest = DEFAULT_JOINT_VALIDATION_REQUEST,
+    x_api_key: str = _API_KEY_HEADER_ARG,
 ):
     # Check request parameters are correctly specified.
     if not jvr.test_drugs:
@@ -225,8 +235,11 @@ DEFAULT_MODULE_VALIDATION_REQUEST = ModuleValidationRequest()
 
 
 @router.post("/module")
+@check_api_key_decorator
 def module_validation_submit(
-    background_tasks: _BackgroundTasks, mvr: ModuleValidationRequest = DEFAULT_MODULE_VALIDATION_REQUEST
+    background_tasks: _BackgroundTasks,
+    mvr: ModuleValidationRequest = DEFAULT_MODULE_VALIDATION_REQUEST,
+    x_api_key: str = _API_KEY_HEADER_ARG,
 ):
     # Check request parameters are correctly specified.
     if not mvr.true_drugs:
@@ -359,8 +372,11 @@ DEFAULT_DRUG_VALIDATION_REQUEST = DrugValidationRequest()
 
 
 @router.post("/drug")
+@check_api_key_decorator
 def drug_validation_submit(
-    background_tasks: _BackgroundTasks, dvr: DrugValidationRequest = DEFAULT_DRUG_VALIDATION_REQUEST
+    background_tasks: _BackgroundTasks,
+    dvr: DrugValidationRequest = DEFAULT_DRUG_VALIDATION_REQUEST,
+    x_api_key: str = _API_KEY_HEADER_ARG,
 ):
     if not dvr.test_drugs:
         raise _HTTPException(status_code=400, detail="test_drugs must be specified and cannot be empty")

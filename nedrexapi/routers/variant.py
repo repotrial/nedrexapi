@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter as _APIRouter, HTTPException as _HTTPException, Query as _Query
 from pottery import synchronize, RedisDict
 
-from nedrexapi.common import _REDIS
+from nedrexapi.common import check_api_key_decorator, _API_KEY_HEADER_ARG, _REDIS
 from nedrexapi.db import MongoInstance
 
 router = _APIRouter()
@@ -25,7 +25,8 @@ def _get_effect_choices():
 
 
 @router.get("/get_effect_choices", summary="Get effect choices")
-def get_effect_choices():
+@check_api_key_decorator
+def get_effect_choices(x_api_key: str = _API_KEY_HEADER_ARG):
     return _get_effect_choices()
 
 
@@ -40,11 +41,13 @@ def _get_review_statuses():
 
 
 @router.get("/get_review_choices", summary="Get review status choices")
-def get_review_statuses():
+@check_api_key_decorator
+def get_review_statuses(x_api_key: str = _API_KEY_HEADER_ARG):
     return _get_review_statuses()
 
 
 @router.get("/get_variant_disorder_associations", summary="Get variant-disorder associations")
+@check_api_key_decorator
 def get_variant_disorder_associations(
     variant_ids: Optional[list[str]] = _Query(
         None,
@@ -70,6 +73,7 @@ def get_variant_disorder_associations(
         description="Default: `['Pathogenic', 'Likely pathogenic', 'Pathogenic/Likely pathogenic']`",
         alias="effect",
     ),
+    x_api_key: str = _API_KEY_HEADER_ARG,
 ):
 
     query = {}
@@ -94,6 +98,7 @@ def get_variant_disorder_associations(
 
 
 @router.get("/get_variant_gene_associations", summary="Get variant-gene associations")
+@check_api_key_decorator
 def get_variant_gene_associations(
     variant_ids: Optional[list[str]] = _Query(
         None,
@@ -107,6 +112,7 @@ def get_variant_gene_associations(
         description="Default: `None` (no filtering on gene IDs)",
         alias="gene_id",
     ),
+    x_api_key: str = _API_KEY_HEADER_ARG,
 ):
     """
     Gets the variant-gene (V-G) relationships associated with the requested variant(s)/gene(s).
@@ -128,6 +134,7 @@ def get_variant_gene_associations(
 
 
 @router.get("/variant_based_disorder_associated_genes", summary="Get variant-based genes associated with disorder")
+@check_api_key_decorator
 def variant_based_genes_associated_with_disorder(
     disorder_id: str = _Query(
         None,
@@ -146,6 +153,7 @@ def variant_based_genes_associated_with_disorder(
         description="Default: `['Pathogenic', 'Likely pathogenic', 'Pathogenic/Likely pathogenic']`",
         alias="effect",
     ),
+    x_api_key: str = _API_KEY_HEADER_ARG,
 ):
     """
     Identifies genes associated with a disorder, using variants as an intermediary.
@@ -164,6 +172,7 @@ def variant_based_genes_associated_with_disorder(
 
 
 @router.get("/variant_based_gene_associated_disorders", summary="Get variant-based disorders associated with a gene")
+@check_api_key_decorator
 def variant_based_disorders_associated_with_gene(
     gene_id: str = _Query(
         None,
@@ -181,6 +190,7 @@ def variant_based_disorders_associated_with_gene(
         description="Default: `['Pathogenic', 'Likely pathogenic', 'Pathogenic/Likely pathogenic']`",
         alias="effect",
     ),
+    x_api_key: str = _API_KEY_HEADER_ARG,
 ):
     """
     Searches NeDRexDB for disorders associated with a gene, using variants as an intermediary.
