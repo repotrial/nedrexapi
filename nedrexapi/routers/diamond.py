@@ -20,7 +20,12 @@ from pottery import Redlock as _Redlock
 from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.config import config as _config
-from nedrexapi.common import get_api_collection as _get_api_collection, _REDIS
+from nedrexapi.common import (
+    check_api_key_decorator,
+    get_api_collection as _get_api_collection,
+    _API_KEY_HEADER_ARG,
+    _REDIS,
+)
 from nedrexapi.logger import logger as _logger
 
 _NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_config['db.dev.neo4j_bolt_port']}")
@@ -119,7 +124,12 @@ def normalise_seeds_and_determine_type(seeds):
 
 
 @router.post("/submit", summary="DIAMOnD Submit")
-async def diamond_submit(background_tasks: _BackgroundTasks, dr: DiamondRequest = _DEFAUT_DIAMOND_REQUEST):
+@check_api_key_decorator
+def diamond_submit(
+    background_tasks: _BackgroundTasks,
+    dr: DiamondRequest = _DEFAUT_DIAMOND_REQUEST,
+    x_api_key: str = _API_KEY_HEADER_ARG,
+):
     """
     Submits a job to run DIAMOnD using a NeDRexDB-based gene-gene network.
 
@@ -179,7 +189,8 @@ async def diamond_submit(background_tasks: _BackgroundTasks, dr: DiamondRequest 
 
 
 @router.get("/status", summary="DIAMOnD Status")
-def diamond_status(uid: str):
+@check_api_key_decorator
+def diamond_status(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns the details of the DIAMOnD job with the given `uid`, including the original query parameters and the
     status of the build (`submitted`, `running`, `failed`, or `completed`).
@@ -194,7 +205,8 @@ def diamond_status(uid: str):
 
 
 @router.get("/download", summary="DIAMOnD Download")
-def diamond_download(uid: str):
+@check_api_key_decorator
+def diamond_download(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     query = {"uid": uid}
     result = _DIAMOND_COLL.find_one(query)
     if not result:
