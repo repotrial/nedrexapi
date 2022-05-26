@@ -18,8 +18,10 @@ from pydantic import BaseModel as _BaseModel, Field as _Field
 
 from nedrexapi.config import config as _config
 from nedrexapi.common import (
+    check_api_key_decorator,
     get_api_collection as _get_api_collection,
     generate_ranking_static_files as _generate_ranking_static_files,
+    _API_KEY_HEADER_ARG,
     _REDIS,
 )
 from nedrexapi.logger import logger as _logger
@@ -62,7 +64,12 @@ DEFAULT_TRUSTRANK_REQUEST = TrustRankRequest()
 
 
 @router.post("/submit")
-async def trustrank_submit(background_tasks: _BackgroundTasks, tr: TrustRankRequest = DEFAULT_TRUSTRANK_REQUEST):
+@check_api_key_decorator
+def trustrank_submit(
+    background_tasks: _BackgroundTasks,
+    tr: TrustRankRequest = DEFAULT_TRUSTRANK_REQUEST,
+    x_api_key: str = _API_KEY_HEADER_ARG,
+):
     if not tr.seeds:
         raise _HTTPException(status_code=404, detail="No seeds submitted")
 
@@ -96,7 +103,8 @@ async def trustrank_submit(background_tasks: _BackgroundTasks, tr: TrustRankRequ
 
 
 @router.get("/status")
-def trustrank_status(uid: str):
+@check_api_key_decorator
+def trustrank_status(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns the details of the trustrank job with the given `uid`, including the original query parameters and the
     status of the build (`submitted`, `building`, `failed`, or `completed`).
@@ -111,7 +119,8 @@ def trustrank_status(uid: str):
 
 
 @router.get("/download")
-def trustrank_download(uid: str):
+@check_api_key_decorator
+def trustrank_download(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     query = {"uid": uid}
     result = _TRUSTRANK_COLL.find_one(query)
     if not result:
