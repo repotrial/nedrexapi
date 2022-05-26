@@ -6,6 +6,7 @@ from urllib.request import urlopen
 from fastapi import APIRouter as _APIRouter, Response as _Response
 
 from nedrexapi.db import MongoInstance
+from nedrexapi.common import check_api_key_decorator, _API_KEY_HEADER_ARG
 from nedrexapi.config import config as _config
 
 router = _APIRouter()
@@ -54,14 +55,16 @@ class Metadata:
 
 
 @router.get("/metadata", summary="Metadata and versions of source datasets for the NeDRex database")
-def get_metadata():
+@check_api_key_decorator
+def get_metadata(x_api_key: str = _API_KEY_HEADER_ARG):
     doc = MongoInstance.DB()["metadata"].find_one({})
     doc.pop("_id")
     return doc
 
 
 @router.get("/licence", summary="Licence for the NeDRex platform")
-def get_licence():
+@check_api_key_decorator
+def get_licence(x_api_key: str = _API_KEY_HEADER_ARG):
     url = "https://raw.githubusercontent.com/repotrial/nedrex_platform_licence/main/licence.txt"
     return _Response(urlopen(url).read(), media_type="text/plain")
 
@@ -71,7 +74,8 @@ def get_licence():
     summary="Lengths map",
     description="Returns the lengths.map file, required for sum functions in the NeDRex platform",
 )
-def lengths_map():
+@check_api_key_decorator
+def lengths_map(x_api_key: str = _API_KEY_HEADER_ARG):
     with open(_STATIC_DIR / "lengths.map") as f:
         lengths_map = f.read()
 
