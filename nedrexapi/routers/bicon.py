@@ -3,7 +3,6 @@ import json as _json
 import os as _os
 import shutil as _shutil
 import subprocess as _subprocess
-import sys as _sys
 import traceback as _traceback
 import zipfile as _zipfile
 from functools import lru_cache as _lru_cache
@@ -23,7 +22,12 @@ from neo4j import GraphDatabase as _GraphDatabase  # type: ignore
 from pottery import Redlock as _Redlock
 
 from nedrexapi.config import config as _config
-from nedrexapi.common import get_api_collection as _get_api_collection, _REDIS
+from nedrexapi.common import (
+    get_api_collection as _get_api_collection,
+    _REDIS,
+    check_api_key_decorator,
+    _API_KEY_HEADER_ARG,
+)
 from nedrexapi.logger import logger as _logger
 
 _NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_config['db.dev.neo4j_bolt_port']}")
@@ -71,12 +75,14 @@ def get_network(query, prefix):
 #       Thus, we ask for query parameters in this instance. Alternative could be Form.
 #       See: https://fastapi.tiangolo.com/tutorial/request-forms-and-files/
 @router.post("/submit", summary="BiCoN Submit")
-async def bicon_submit(
+@check_api_key_decorator
+def bicon_submit(
     background_tasks: _BackgroundTasks,
     expression_file: _UploadFile = _DEFAULT_FILE,
     lg_min: int = _Form(10),
     lg_max: int = _Form(15),
     network: str = _Form("DEFAULT"),
+    x_api_key: str = _API_KEY_HEADER_ARG,
 ):
     """
     Route used to submit a BiCoN job.
@@ -122,7 +128,8 @@ async def bicon_submit(
 
 
 @router.get("/status", summary="BiCoN Status")
-def bicon_status(uid: str):
+@check_api_key_decorator
+def bicon_status(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     query = {"uid": uid}
     result = _BICON_COLL.find_one(query)
     if not result:
@@ -132,7 +139,8 @@ def bicon_status(uid: str):
 
 
 @router.get("/clustermap", summary="BiCoN Clustermap")
-def bicon_clustermap(uid: str):
+@check_api_key_decorator
+def bicon_clustermap(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     query = {"uid": uid}
     result = _BICON_COLL.find_one(query)
     if not result:
@@ -145,7 +153,8 @@ def bicon_clustermap(uid: str):
 
 
 @router.get("/download", summary="BiCoN Download")
-def bicon_download(uid: str):
+@check_api_key_decorator
+def bicon_download(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     query = {"uid": uid}
     result = _BICON_COLL.find_one(query)
     if not result:
@@ -159,7 +168,7 @@ def run_bicon_wrapper(uid):
     try:
         run_bicon(uid)
     except Exception as E:
-        print(_traceback.format_exc())
+        _logger.warning(_traceback.format_exc())
         with _BICON_COLL_LOCK:
             _BICON_COLL.update_one({"uid": uid}, {"$set": {"status": "failed", "error": f"{E}"}})
 
@@ -189,7 +198,9 @@ def run_bicon(uid):
     else:
         raise Exception()
 
+    _logger.debug("Obtaining GGI network")
     network_file = get_network(query, prefix="entrez.")
+    _logger.debug("Obtained GGI network")
     _shutil.copy(network_file, f"{workdir / 'network.tsv'}")
 
     expression = details["filename"]
@@ -197,7 +208,7 @@ def run_bicon(uid):
     lg_min = details["lg_min"]
 
     command = [
-        f"{_sys.executable}",
+        _config["tools.bicon_python"],
         f"{_config['api.directories.scripts']}/run_bicon.py",
         "--expression",
         f"{expression}",
@@ -213,7 +224,9 @@ def run_bicon(uid):
 
     p = _subprocess.Popen(command, cwd=f"{workdir}", stdout=_subprocess.PIPE, stderr=_subprocess.PIPE)
     stdout, stderr = p.communicate()
-    print(stdout, stderr)
+
+    print(stdout.decode())
+    print(stderr.decode())
 
     if p.returncode != 0:
         with _BICON_COLL_LOCK:

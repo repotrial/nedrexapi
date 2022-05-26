@@ -1,8 +1,8 @@
 from itertools import chain as _chain
 
-from fastapi import APIRouter as _APIRouter, HTTPException as _HTTPException, Query as _Query
+from fastapi import APIRouter as _APIRouter, Query as _Query
 
-from nedrexapi.common import check_api_key
+from nedrexapi.common import check_api_key_decorator, _API_KEY_HEADER_ARG
 from nedrexapi.db import MongoInstance
 
 
@@ -39,7 +39,8 @@ PROTEIN_QUERY = _Query(
 
 
 @router.get("/get_encoded_proteins")
-def get_encoded_proteins(genes: list[str] = GENE_QUERY):
+@check_api_key_decorator
+def get_encoded_proteins(genes: list[str] = GENE_QUERY, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Given a set of seed genes, this route returns the proteins encoded by those genes as a hash map.
     """
@@ -60,7 +61,8 @@ def get_encoded_proteins(genes: list[str] = GENE_QUERY):
 
 
 @router.get("/get_drugs_indicated_for_disorders")
-def get_drugs_indicated_for_disorders(disorders: list[str] = DISORDER_QUERY):
+@check_api_key_decorator
+def get_drugs_indicated_for_disorders(disorders: list[str] = DISORDER_QUERY, x_api_key: str = _API_KEY_HEADER_ARG):
     disorders = [f"mondo.{i}" if not i.startswith("mondo") else i for i in disorders]
 
     coll = MongoInstance.DB()["drug_has_indication"]
@@ -78,11 +80,8 @@ def get_drugs_indicated_for_disorders(disorders: list[str] = DISORDER_QUERY):
 
 
 @router.get("/get_drugs_targetting_proteins")
-def get_drugs_targetting_proteins(proteins: list[str] = PROTEIN_QUERY, api_key: str = None):
-    if api_key is None:
-        raise _HTTPException(404, "API key is required for this route")
-    check_api_key(api_key)
-
+@check_api_key_decorator
+def get_drugs_targetting_proteins(proteins: list[str] = PROTEIN_QUERY, x_api_key: str = _API_KEY_HEADER_ARG):
     proteins = [f"uniprot.{i}" if not i.startswith("uniprot.") else i for i in proteins]
 
     coll = MongoInstance.DB()["drug_has_target"]
@@ -100,11 +99,8 @@ def get_drugs_targetting_proteins(proteins: list[str] = PROTEIN_QUERY, api_key: 
 
 
 @router.get("/get_drugs_targetting_gene_products")
-def get_drugs_targetting_gene_products(genes: list[str] = GENE_QUERY, api_key: str = None):
-    if api_key is None:
-        raise _HTTPException(404, "API key is required for this route")
-    check_api_key(api_key)
-
+@check_api_key_decorator
+def get_drugs_targetting_gene_products(genes: list[str] = GENE_QUERY, x_api_key: str = _API_KEY_HEADER_ARG):
     gene_products = get_encoded_proteins(genes)
     all_proteins = list(_chain(*gene_products.values()))
 
