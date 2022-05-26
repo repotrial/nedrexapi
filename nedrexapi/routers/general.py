@@ -150,8 +150,10 @@ def get_node_attribute_values(
         ),
         alias="node_id",
     ),
-    offset: Optional[int] = _Query(None, description="Offset to use (if paginated queries are desired)"),
-    limit: Optional[int] = _Query(None, description="Limit to use (if paginated queries are desired)"),
+    offset: Optional[int] = _Query(None, description="Offset to use"),
+    limit: Optional[int] = _Query(
+        None, description=f"Limit number of queries returned (default & maximum is {config['api.pagination_max']:,})"
+    ),
     x_api_key: str = _API_KEY_HEADER_ARG,
 ):
     # Singular is used for arguments because this makes sense to a user.
@@ -167,11 +169,16 @@ def get_node_attribute_values(
         query = {}
     else:
         query = {"primaryDomainId": {"$in": node_ids}}
+
+    if limit is None:
+        limit = config["api.pagination_max"]
+    elif limit > config["api.pagination_max"]:
+        raise _HTTPException(status_code=404, detail=f"Limit cannot be greater than {config['api.pagination_max']:,}")
+
     kwargs = {}
     if offset is not None:
         kwargs["skip"] = offset
-    if limit is not None:
-        kwargs["limit"] = limit
+    kwargs["limit"] = limit
 
     print(kwargs)
 
@@ -251,9 +258,9 @@ def list_all_collection_items(t: str, offset: int = None, limit: int = None, x_a
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
 
     if limit is None:
-        limit = 10_000
-    elif limit > 10_000:
-        raise _HTTPException(status_code=404, detail="Limit cannot be greater than 10,000")
+        limit = config["api.pagination_max"]
+    elif limit > config["api.pagination_max"]:
+        raise _HTTPException(status_code=404, detail=f"Limit cannot be greater than {config['api.pagination_max']:,}")
 
     kwargs = {}
     if offset is not None:
