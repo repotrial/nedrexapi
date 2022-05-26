@@ -180,8 +180,6 @@ def get_node_attribute_values(
         kwargs["skip"] = offset
     kwargs["limit"] = limit
 
-    print(kwargs)
-
     results = [
         {"primaryDomainId": i["primaryDomainId"], **{attr: i.get(attr) for attr in attributes}}
         for i in MongoInstance.DB()[t].find(query, **kwargs)

@@ -4,6 +4,7 @@ from fastapi import APIRouter as _APIRouter, HTTPException as _HTTPException, Qu
 from pottery import synchronize, RedisDict
 
 from nedrexapi.common import check_api_key_decorator, _API_KEY_HEADER_ARG, _REDIS
+from nedrexapi.config import config
 from nedrexapi.db import MongoInstance
 
 router = _APIRouter()
@@ -73,6 +74,14 @@ def get_variant_disorder_associations(
         description="Default: `['Pathogenic', 'Likely pathogenic', 'Pathogenic/Likely pathogenic']`",
         alias="effect",
     ),
+    limit: Optional[int] = _Query(
+        None, title="Limit number of results returned", description=f"Default: `{config['api.pagination_max']}`"
+    ),
+    offset: Optional[int] = _Query(
+        None,
+        title="Offset to use for paginated queries",
+        description="Default: `0`",
+    ),
     x_api_key: str = _API_KEY_HEADER_ARG,
 ):
 
@@ -92,7 +101,17 @@ def get_variant_disorder_associations(
     else:
         query["effects"] = {"$in": effects}
 
-    results = list(MongoInstance.DB()["variant_associated_with_disorder"].find(query))
+    if offset is None:
+        offset = 0
+
+    if limit is None:
+        limit = config["api.pagination_max"]
+    elif limit > config["api.pagination_max"]:
+        raise _HTTPException(status_code=404, detail=f"Limit cannot be greater than {config['api.pagination_max']:,}")
+
+    results = list(
+        MongoInstance.DB()["variant_associated_with_disorder"].find(query, skip=offset, limit=limit, sort=[("_id", 1)])
+    )
     [i.pop("_id") for i in results]
     return results
 

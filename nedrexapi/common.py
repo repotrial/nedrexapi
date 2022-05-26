@@ -131,7 +131,6 @@ def check_api_key_decorator(func):
             check_api_key(params["x_api_key"])
         else:
             pass
-        print(args, kwargs)
         return func(*args, **kwargs)
 
     return new

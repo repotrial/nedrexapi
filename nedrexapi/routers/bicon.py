@@ -198,9 +198,9 @@ def run_bicon(uid):
     else:
         raise Exception()
 
-    _logger.debug("Obtaining GGI network")
+    _logger.debug("obtaining GGI network")
     network_file = get_network(query, prefix="entrez.")
-    _logger.debug("Obtained GGI network")
+    _logger.debug("obtained GGI network")
     _shutil.copy(network_file, f"{workdir / 'network.tsv'}")
 
     expression = details["filename"]
@@ -225,10 +225,10 @@ def run_bicon(uid):
     p = _subprocess.Popen(command, cwd=f"{workdir}", stdout=_subprocess.PIPE, stderr=_subprocess.PIPE)
     stdout, stderr = p.communicate()
 
-    print(stdout.decode())
-    print(stderr.decode())
-
     if p.returncode != 0:
+        _logger.warning(f"bicon process exited with exit code {p.returncode}")
+        _logger.warning(stderr.decode())
+
         with _BICON_COLL_LOCK:
             _BICON_COLL.update_one(
                 {"uid": uid},
