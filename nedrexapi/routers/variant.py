@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter as _APIRouter, HTTPException as _HTTPException, Query as _Query
+from fastapi import APIRouter as _APIRouter, HTTPException as _HTTPException, Query as _Query, Request as _Request
 from pottery import synchronize, RedisDict
 
 from nedrexapi.common import check_api_key_decorator, _API_KEY_HEADER_ARG, _REDIS
@@ -27,7 +27,7 @@ def _get_effect_choices():
 
 @router.get("/get_effect_choices", summary="Get effect choices")
 @check_api_key_decorator
-def get_effect_choices(x_api_key: str = _API_KEY_HEADER_ARG):
+def get_effect_choices(request: _Request, x_api_key: str = _API_KEY_HEADER_ARG):
     return _get_effect_choices()
 
 
@@ -43,7 +43,7 @@ def _get_review_statuses():
 
 @router.get("/get_review_choices", summary="Get review status choices")
 @check_api_key_decorator
-def get_review_statuses(x_api_key: str = _API_KEY_HEADER_ARG):
+def get_review_statuses(request: _Request, x_api_key: str = _API_KEY_HEADER_ARG):
     return _get_review_statuses()
 
 

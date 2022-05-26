@@ -1,7 +1,10 @@
 from fastapi import FastAPI
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.errors import RateLimitExceeded
 
 from nedrexapi.db import MongoInstance, create_directories
-from nedrexapi.config import parse_config
+from nedrexapi.config import parse_config, config
 
 parse_config(".config.toml")
 MongoInstance.connect("dev")
@@ -44,6 +47,14 @@ For a tutorial on using the API, please consult
     docs_url=None,
     redoc_url="/",
 )
+
+
+if config["api.rate_limiting_enabled"]:
+    from nedrexapi.common import limiter
+
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(SlowAPIMiddleware)
 
 app.include_router(_general.router, tags=["General"])
 app.include_router(_disorder.router, prefix="/disorder", tags=["Disorder"])
