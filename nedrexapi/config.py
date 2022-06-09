@@ -1,6 +1,7 @@
 from dataclasses import dataclass as _dataclass
 from pprint import pformat as _pformat
-from typing import Any as _Any, Optional as _Optional
+from typing import Any as _Any
+from typing import Optional as _Optional
 
 import toml as _toml  # type: ignore
 

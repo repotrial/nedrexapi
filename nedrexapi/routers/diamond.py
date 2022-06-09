@@ -2,33 +2,31 @@ import shutil as _shutil
 import subprocess as _subprocess
 import tempfile as _tempfile
 import traceback as _traceback
-from csv import DictReader as _DictReader, reader as _reader
-from functools import lru_cache as _lru_cache
-from itertools import combinations as _combinations, product as _product
-from typing import Any as _Any
+from csv import DictReader as _DictReader
+from csv import reader as _reader
+from itertools import combinations as _combinations
+from itertools import product as _product
 from pathlib import Path as _Path
+from typing import Any as _Any
 from uuid import uuid4 as _uuid4
 
-from neo4j import GraphDatabase as _GraphDatabase  # type: ignore
-from fastapi import (
-    APIRouter as _APIRouter,
-    BackgroundTasks as _BackgroundTasks,
-    HTTPException as _HTTPException,
-    Response as _Response,
-)
+from fastapi import APIRouter as _APIRouter
+from fastapi import BackgroundTasks as _BackgroundTasks
+from fastapi import HTTPException as _HTTPException
+from fastapi import Response as _Response
 from pottery import Redlock as _Redlock
-from pydantic import BaseModel as _BaseModel, Field as _Field
+from pydantic import BaseModel as _BaseModel
+from pydantic import Field as _Field
 
+from nedrexapi.common import _API_KEY_HEADER_ARG, _REDIS, check_api_key_decorator
+from nedrexapi.common import get_api_collection as _get_api_collection
 from nedrexapi.config import config as _config
-from nedrexapi.common import (
-    check_api_key_decorator,
-    get_api_collection as _get_api_collection,
-    _API_KEY_HEADER_ARG,
-    _REDIS,
-)
 from nedrexapi.logger import logger as _logger
-
-_NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_config['db.dev.neo4j_bolt_port']}")
+from nedrexapi.networks import (
+    QUERY_MAP,
+    get_network,
+    normalise_seeds_and_determine_type,
+)
 
 _DIAMOND_COLL = _get_api_collection("diamond_")
 _DIAMOND_DIR = _Path(_config["api.directories.data"]) / "diamond_"
@@ -36,33 +34,6 @@ _DIAMOND_DIR.mkdir(parents=True, exist_ok=True)
 _DIAMOND_COLL_LOCK = _Redlock(key="diamond_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
 
 router = _APIRouter()
-
-PPI_BASED_GGI_QUERY = """
-MATCH (pa)-[ppi:ProteinInteractsWithProtein]-(pb)
-WHERE "exp" in ppi.evidenceTypes
-MATCH (pa)-[:ProteinEncodedByGene]->(x)
-MATCH (pb)-[:ProteinEncodedByGene]->(y)
-RETURN DISTINCT x.primaryDomainId, y.primaryDomainId
-"""
-
-PPI_QUERY = """
-MATCH (x)-[ppi:ProteinInteractsWithProtein]-(y)
-WHERE "exp" in ppi.evidenceTypes
-RETURN DISTINCT x.primaryDomainId, y.primaryDomainId
-"""
-
-SHARED_DISORDER_BASED_GGI_QUERY = """
-MATCH (x:Gene)-[:GeneAssociatedWithDisorder]->(d:Disorder)
-MATCH (y:Gene)-[:GeneAssociatedWithDisorder]->(d:Disorder)
-WHERE x <> y
-RETURN DISTINCT x.primaryDomainId, y.primaryDomainId
-"""
-
-QUERY_MAP = {
-    ("gene", "DEFAULT"): PPI_BASED_GGI_QUERY,
-    ("protein", "DEFAULT"): PPI_QUERY,
-    ("gene", "SHARED_DISORDER"): SHARED_DISORDER_BASED_GGI_QUERY,
-}
 
 
 class DiamondRequest(_BaseModel):
@@ -91,36 +62,6 @@ class DiamondRequest(_BaseModel):
 
 
 _DEFAUT_DIAMOND_REQUEST = DiamondRequest()
-
-
-@_lru_cache(maxsize=None)
-def get_network(query, prefix):
-    outfile = f"/tmp/{_uuid4()}.tsv"
-
-    with _NEO4J_DRIVER.session() as session, open(outfile, "w") as f:
-        for result in session.run(query):
-            a = result["x.primaryDomainId"].replace(prefix, "")
-            b = result["y.primaryDomainId"].replace(prefix, "")
-            f.write("{}\t{}\n".format(a, b))
-
-    return outfile
-
-
-def normalise_seeds_and_determine_type(seeds):
-    new_seeds = [seed.upper() for seed in seeds]
-
-    if all(seed.startswith("ENTREZ.") for seed in new_seeds):
-        seed_type = "gene"
-        new_seeds = [seed.replace("ENTREZ.", "") for seed in new_seeds]
-    elif all(seed.isnumeric() for seed in new_seeds):
-        seed_type = "gene"
-    elif all(seed.startswith("UNIPROT.") for seed in new_seeds):
-        seed_type = "protein"
-        new_seeds = [seed.replace("UNIPROT.", "") for seed in new_seeds]
-    else:
-        seed_type = "protein"
-
-    return new_seeds, seed_type
 
 
 @router.post("/submit", summary="DIAMOnD Submit")

@@ -1,9 +1,12 @@
 from typing import Optional
 
-from fastapi import APIRouter as _APIRouter, HTTPException as _HTTPException, Query as _Query, Request as _Request
-from pottery import synchronize, RedisDict
+from fastapi import APIRouter as _APIRouter
+from fastapi import HTTPException as _HTTPException
+from fastapi import Query as _Query
+from fastapi import Request as _Request
+from pottery import RedisDict, synchronize
 
-from nedrexapi.common import check_api_key_decorator, _API_KEY_HEADER_ARG, _REDIS
+from nedrexapi.common import _API_KEY_HEADER_ARG, _REDIS, check_api_key_decorator
 from nedrexapi.config import config
 from nedrexapi.db import MongoInstance
 

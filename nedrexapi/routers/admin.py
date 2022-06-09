@@ -1,25 +1,30 @@
 import datetime
 import secrets
 
-from fastapi import (
-    APIRouter as _APIRouter,
-    BackgroundTasks as _BackgroundTasks,
-    HTTPException as _HTTPException,
-    Header as _Header,
-)
-from pydantic import BaseModel as _BaseModel, Field as _Field
+from fastapi import APIRouter as _APIRouter
+from fastapi import BackgroundTasks as _BackgroundTasks
+from fastapi import Header as _Header
+from fastapi import HTTPException as _HTTPException
+from pydantic import BaseModel as _BaseModel
+from pydantic import Field as _Field
 
-from nedrexapi.common import get_api_collection, check_api_key
+from nedrexapi.common import check_api_key, get_api_collection
 from nedrexapi.routers.bicon import run_bicon_wrapper as _run_bicon_wrapper
 from nedrexapi.routers.closeness import run_closeness_wrapper as _run_closeness_wrapper
 from nedrexapi.routers.diamond import run_diamond_wrapper as _run_diamond_wrapper
-from nedrexapi.routers.graph import graph_constructor_wrapper as _graph_constructor_wrapper
+from nedrexapi.routers.graph import (
+    graph_constructor_wrapper as _graph_constructor_wrapper,
+)
 from nedrexapi.routers.must import run_must_wrapper as _run_must_wrapper
 from nedrexapi.routers.trustrank import run_trustrank_wrapper as _run_trustrank_wrapper
 from nedrexapi.routers.validation import (
     drug_validation_wrapper as _drug_validation_wrapper,
-    module_validation_wrapper as _module_validation_wrapper,
+)
+from nedrexapi.routers.validation import (
     joint_validation_wrapper as _joint_validation_wrapper,
+)
+from nedrexapi.routers.validation import (
+    module_validation_wrapper as _module_validation_wrapper,
 )
 
 router = _APIRouter()

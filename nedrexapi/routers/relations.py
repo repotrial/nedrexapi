@@ -1,10 +1,10 @@
 from itertools import chain as _chain
 
-from fastapi import APIRouter as _APIRouter, Query as _Query
+from fastapi import APIRouter as _APIRouter
+from fastapi import Query as _Query
 
-from nedrexapi.common import check_api_key_decorator, _API_KEY_HEADER_ARG
+from nedrexapi.common import _API_KEY_HEADER_ARG, check_api_key_decorator
 from nedrexapi.db import MongoInstance
-
 
 router = _APIRouter()
 

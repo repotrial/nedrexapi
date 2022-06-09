@@ -7,25 +7,21 @@ from pathlib import Path as _Path
 from uuid import uuid4 as _uuid4
 
 import networkx as _nx  # type: ignore
-from fastapi import (
-    APIRouter as _APIRouter,
-    BackgroundTasks as _BackgroundTasks,
-    HTTPException as _HTTPException,
-    Response as _Response,
-)
+from fastapi import APIRouter as _APIRouter
+from fastapi import BackgroundTasks as _BackgroundTasks
+from fastapi import HTTPException as _HTTPException
+from fastapi import Response as _Response
 from pottery import Redlock as _Redlock
-from pydantic import BaseModel as _BaseModel, Field as _Field
+from pydantic import BaseModel as _BaseModel
+from pydantic import Field as _Field
 
-from nedrexapi.config import config as _config
+from nedrexapi.common import _API_KEY_HEADER_ARG, _REDIS, check_api_key_decorator
 from nedrexapi.common import (
-    check_api_key_decorator,
-    get_api_collection as _get_api_collection,
     generate_ranking_static_files as _generate_ranking_static_files,
-    _API_KEY_HEADER_ARG,
-    _REDIS,
 )
+from nedrexapi.common import get_api_collection as _get_api_collection
+from nedrexapi.config import config as _config
 from nedrexapi.logger import logger as _logger
-
 
 _CLOSENESS_COLL = _get_api_collection("closeness_")
 _CLOSENESS_DIR = _Path(_config["api.directories.data"]) / "closeness_"

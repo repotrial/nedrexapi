@@ -9,25 +9,19 @@ from functools import lru_cache as _lru_cache
 from pathlib import Path as _Path
 from uuid import uuid4 as _uuid4
 
-from fastapi import (
-    APIRouter as _APIRouter,
-    BackgroundTasks as _BackgroundTasks,
-    HTTPException as _HTTPException,
-    Response as _Response,
-    UploadFile as _UploadFile,
-    File as _File,
-    Form as _Form,
-)
+from fastapi import APIRouter as _APIRouter
+from fastapi import BackgroundTasks as _BackgroundTasks
+from fastapi import File as _File
+from fastapi import Form as _Form
+from fastapi import HTTPException as _HTTPException
+from fastapi import Response as _Response
+from fastapi import UploadFile as _UploadFile
 from neo4j import GraphDatabase as _GraphDatabase  # type: ignore
 from pottery import Redlock as _Redlock
 
+from nedrexapi.common import _API_KEY_HEADER_ARG, _REDIS, check_api_key_decorator
+from nedrexapi.common import get_api_collection as _get_api_collection
 from nedrexapi.config import config as _config
-from nedrexapi.common import (
-    get_api_collection as _get_api_collection,
-    _REDIS,
-    check_api_key_decorator,
-    _API_KEY_HEADER_ARG,
-)
 from nedrexapi.logger import logger as _logger
 
 _NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_config['db.dev.neo4j_bolt_port']}")

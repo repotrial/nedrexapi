@@ -3,11 +3,12 @@ from enum import Enum
 from pathlib import Path as _Path
 from urllib.request import urlopen
 
-from fastapi import APIRouter as _APIRouter, Response as _Response
+from fastapi import APIRouter as _APIRouter
+from fastapi import Response as _Response
 
-from nedrexapi.db import MongoInstance
-from nedrexapi.common import check_api_key_decorator, _API_KEY_HEADER_ARG
+from nedrexapi.common import _API_KEY_HEADER_ARG, check_api_key_decorator
 from nedrexapi.config import config as _config
+from nedrexapi.db import MongoInstance
 
 router = _APIRouter()
 

@@ -4,23 +4,24 @@ from functools import wraps
 from inspect import getfullargspec
 from typing import Optional
 
-from fastapi import HTTPException as _HTTPException, Header as _Header
-from pottery import RedisDict as _RedisDict, Redlock as _Redlock
+from fastapi import Header as _Header
+from fastapi import HTTPException as _HTTPException
+from pottery import RedisDict as _RedisDict
+from pottery import Redlock as _Redlock
 from pymongo import MongoClient as _MongoClient  # type: ignore
 from redis import Redis as _Redis  # type: ignore
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-
 from nedrexapi.config import config as _config
 from nedrexapi.logger import logger
-
 
 _MONGO_CLIENT = _MongoClient(port=_config["api.mongo_port"])
 _MONGO_DB = _MONGO_CLIENT[_config["api.mongo_db"]]
 
 _REDIS = _Redis.from_url(f"redis://localhost:{_config['api.redis_port']}/{_config['api.redis_nedrex_db']}")
 _STATUS = _RedisDict(redis=_REDIS, key="static-file-status")
+
 
 _STATIC_RANKING_LOCK = _Redlock(key="static-ranking-lock", masters={_REDIS}, auto_release_time=int(1e10))
 _STATIC_VALIDATION_LOCK = _Redlock(key="static-validation-lock", masters={_REDIS}, auto_release_time=int(1e10))
@@ -30,7 +31,7 @@ _API_KEY_HEADER_ARG = _Header(default=None, include_in_schema=_config["api.requi
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=[_config["api.rate_limit"]],
-    storage_uri=f"redis://localhost:{_config['api.redis_port']}/{_config['api.redis_nedrex_db']}",
+    storage_uri=f"redis://localhost:{_config['api.redis_port']}/{_config['api.redis_rate_limit_db']}",
 )
 
 

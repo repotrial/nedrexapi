@@ -1,12 +1,13 @@
 from collections import defaultdict as _defaultdict
 
 import networkx as _nx  # type: ignore
-from cachetools import LRUCache as _LRUCache, cached as _cached  # type: ignore
-from fastapi import APIRouter as _APIRouter, Query as _Query
+from cachetools import LRUCache as _LRUCache  # type: ignore
+from cachetools import cached as _cached
+from fastapi import APIRouter as _APIRouter
+from fastapi import Query as _Query
 
 from nedrexapi.common import _API_KEY_HEADER_ARG, check_api_key_decorator
 from nedrexapi.db import MongoInstance
-
 
 DEFAULT_QUERY = _Query(None)
 
