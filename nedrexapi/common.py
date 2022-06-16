@@ -2,6 +2,7 @@ import datetime as _datetime
 import subprocess as _subprocess
 from functools import wraps
 from inspect import getfullargspec
+from pathlib import Path
 from typing import Optional
 
 from fastapi import Header as _Header
@@ -22,24 +23,59 @@ _MONGO_DB = _MONGO_CLIENT[_config["api.mongo_db"]]
 _REDIS = _Redis.from_url(f"redis://localhost:{_config['api.redis_port']}/{_config['api.redis_nedrex_db']}")
 _STATUS = _RedisDict(redis=_REDIS, key="static-file-status")
 
-
+# Locks
+_BICON_COLL_LOCK = _Redlock(key="bicon_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
+_CLOSENESS_COLL_LOCK = _Redlock(key="closeness_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
+_DIAMOND_COLL_LOCK = _Redlock(key="diamond_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
+_DOMINO_COLL_LOCK = _Redlock(key="domino_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
+_GRAPH_COLL_LOCK = _Redlock(key="graph_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
+_KPM_COLL_LOCK = _Redlock(key="kpm_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
+_MUST_COLL_LOCK = _Redlock(key="must_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
+_NETWORK_GEN_LOCK = _Redlock(key="network_generation_lock", masters={_REDIS}, auto_release_time=int(1e10))
+_ROBUST_COLL_LOCK = _Redlock(key="robust_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
 _STATIC_RANKING_LOCK = _Redlock(key="static-ranking-lock", masters={_REDIS}, auto_release_time=int(1e10))
 _STATIC_VALIDATION_LOCK = _Redlock(key="static-validation-lock", masters={_REDIS}, auto_release_time=int(1e10))
+_TRUSTRANK_COLL_LOCK = _Redlock(key="trustrank_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
+_VALIDATION_COLL_LOCK = _Redlock(key="validation_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
 
-_API_KEY_HEADER_ARG = _Header(default=None, include_in_schema=_config["api.require_api_keys"])
+
+# Collections
+def get_api_collection(coll_name):
+    return _MONGO_DB[coll_name]
+
+
+_API_KEY_COLLECTION = get_api_collection("api_keys_")
+_BICON_COLL = get_api_collection("bicon_")
+_CLOSENESS_COLL = get_api_collection("closeness_")
+_DIAMOND_COLL = get_api_collection("diamond_")
+_DOMINO_COLL = get_api_collection("domino_")
+_GRAPH_COLL = get_api_collection("graphs_")
+_KPM_COLL = get_api_collection("kpm_")
+_ROBUST_COLL = get_api_collection("robust_")
+_TRUSTRANK_COLL = get_api_collection("trustrank_")
+_MUST_COLL = get_api_collection("must_")
+_VALIDATION_COLL = get_api_collection("validation_")
+
+# Directories
+_DIAMOND_DIR = Path(_config["api.directories.data"]) / "diamond_"
+_MUST_DIR = Path(_config["api.directories.data"]) / "must_"
+_ROBUST_DIR = Path(_config["api.directories.data"]) / "robust_"
+_BICON_DIR = Path(_config["api.directories.data"]) / "bicon_"
+_GRAPH_DIR = Path(_config["api.directories.data"]) / "graphs_"
+_CLOSENESS_DIR = Path(_config["api.directories.data"]) / "closeness_"
+_TRUSTRANK_DIR = Path(_config["api.directories.data"]) / "trustrank_"
+_STATIC_DIR = Path(_config["api.directories.static"])
+
+
+for dir in [_DIAMOND_DIR, _MUST_DIR, _ROBUST_DIR, _BICON_DIR, _GRAPH_DIR, _CLOSENESS_DIR, _TRUSTRANK_DIR, _STATIC_DIR]:
+    dir.mkdir(exist_ok=True, parents=True)
+
 
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=[_config["api.rate_limit"]],
     storage_uri=f"redis://localhost:{_config['api.redis_port']}/{_config['api.redis_rate_limit_db']}",
 )
-
-
-def get_api_collection(coll_name):
-    return _MONGO_DB[coll_name]
-
-
-_API_KEY_COLLECTION = get_api_collection("api_keys_")
 
 
 def generate_ranking_static_files():
@@ -144,3 +180,6 @@ def check_api_key_decorator(func):
         return func(*args, **kwargs)
 
     return new
+
+
+_API_KEY_HEADER_ARG = _Header(default=None, include_in_schema=_config["api.require_api_keys"])

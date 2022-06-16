@@ -1,7 +1,7 @@
 from uuid import uuid4 as _uuid4
 
 from neo4j import GraphDatabase as _GraphDatabase  # type: ignore
-from pottery import redis_cache
+from pottery import Redlock, redis_cache
 
 from nedrexapi.common import _REDIS
 from nedrexapi.config import config
@@ -37,8 +37,22 @@ QUERY_MAP = {
 }
 
 
+NETWORK_GEN_LOCK = Redlock(key="network_generation_lock", masters={_REDIS}, auto_release_time=int(1e10))
+
+
+def get_network(query, prefix, type):
+    with NETWORK_GEN_LOCK:
+        print("I have the lock and am getting my network!")
+        if type == "edge_list":
+            return get_network_edge_list(query, prefix)
+        elif type == "sif":
+            return get_network_sif(query, prefix)
+        else:
+            raise Exception("invalid type given")
+
+
 @redis_cache(redis=_REDIS, key="edge-list-generation-cache", timeout=int(1e10))
-def get_network(query, prefix):
+def get_network_edge_list(query, prefix):
     outfile = f"/tmp/{_uuid4()}.tsv"
 
     with _NEO4J_DRIVER.session() as session, open(outfile, "w") as f:
@@ -54,7 +68,7 @@ def get_network(query, prefix):
 def get_network_sif(query, prefix):
     outfile = f"/tmp/{_uuid4()}.sif"
 
-    edge_list = get_network(query, prefix)
+    edge_list = get_network_edge_list(query, prefix)
     with open(edge_list, "r") as f, open(outfile, "w") as g:
         for line in f:
             stripped_line = line.strip()

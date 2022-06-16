@@ -9,23 +9,7 @@ from pydantic import BaseModel as _BaseModel
 from pydantic import Field as _Field
 
 from nedrexapi.common import check_api_key, get_api_collection
-from nedrexapi.routers.bicon import run_bicon_wrapper as _run_bicon_wrapper
-from nedrexapi.routers.closeness import run_closeness_wrapper as _run_closeness_wrapper
-from nedrexapi.routers.diamond import run_diamond_wrapper as _run_diamond_wrapper
-from nedrexapi.routers.graph import (
-    graph_constructor_wrapper as _graph_constructor_wrapper,
-)
-from nedrexapi.routers.must import run_must_wrapper as _run_must_wrapper
-from nedrexapi.routers.trustrank import run_trustrank_wrapper as _run_trustrank_wrapper
-from nedrexapi.routers.validation import (
-    drug_validation_wrapper as _drug_validation_wrapper,
-)
-from nedrexapi.routers.validation import (
-    joint_validation_wrapper as _joint_validation_wrapper,
-)
-from nedrexapi.routers.validation import (
-    module_validation_wrapper as _module_validation_wrapper,
-)
+from nedrexapi.tasks import queue_and_wait_for_job
 
 router = _APIRouter()
 
@@ -139,23 +123,23 @@ def resubmit_job(job_type: str, uid: str, background_tasks: _BackgroundTasks):
     coll.replace_one({"uid": uid}, doc)
 
     if job_type == "bicon":
-        background_tasks.add_task(_run_bicon_wrapper, uid)
+        background_tasks.add_task(queue_and_wait_for_job, "bicon", uid)
     elif job_type == "closeness":
-        background_tasks.add_task(_run_closeness_wrapper, uid)
+        background_tasks.add_task(queue_and_wait_for_job, "closeness", uid)
     elif job_type == "diamond":
-        background_tasks.add_task(_run_diamond_wrapper, uid)
+        background_tasks.add_task(queue_and_wait_for_job, "diamond", uid)
     elif job_type == "graphs":
-        background_tasks.add_task(_graph_constructor_wrapper, uid)
+        background_tasks.add_task(queue_and_wait_for_job, "graph", uid)
     elif job_type == "trustrank":
-        background_tasks.add_task(_run_trustrank_wrapper, uid)
+        background_tasks.add_task(queue_and_wait_for_job, "trustrank", uid)
     elif job_type == "must":
-        background_tasks.add_task(_run_must_wrapper, uid)
+        background_tasks.add_task(queue_and_wait_for_job, "must", uid)
     elif job_type == "validation":
         if doc["validation_type"] == "module":
-            background_tasks.add_task(_module_validation_wrapper, uid)
+            background_tasks.add_task(queue_and_wait_for_job, "validation-module", uid)
         elif doc["validation_type"] == "drug":
-            background_tasks.add_task(_drug_validation_wrapper, uid)
+            background_tasks.add_task(queue_and_wait_for_job, "validation-drug", uid)
         elif doc["validation_type"] == "joint":
-            background_tasks.add_task(_joint_validation_wrapper, uid)
+            background_tasks.add_task(queue_and_wait_for_job, "validation-joint", uid)
 
     return uid
