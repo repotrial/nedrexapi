@@ -63,11 +63,10 @@ def queue_and_wait_for_job(type, uid):
 
     while True:
         status = job.get_status(refresh=True)
+
         if status == "finished":
             return
         elif status == "failed":
             raise Exception()
-        else:
-            print(f"Job status is {status!r}, sleeping for 60s")
 
         time.sleep(60)

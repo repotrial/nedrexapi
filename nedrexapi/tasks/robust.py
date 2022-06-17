@@ -80,3 +80,5 @@ def run_robust(uid):
     tempdir.cleanup()
     with _ROBUST_COLL_LOCK:
         _ROBUST_COLL.update_one({"uid": uid}, {"$set": {"status": "completed"}})
+
+    logger.success(f"finished ROBUST job {uid!r}")

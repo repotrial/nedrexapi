@@ -67,8 +67,17 @@ _TRUSTRANK_DIR = Path(_config["api.directories.data"]) / "trustrank_"
 _STATIC_DIR = Path(_config["api.directories.static"])
 
 
-for dir in [_DIAMOND_DIR, _MUST_DIR, _ROBUST_DIR, _BICON_DIR, _GRAPH_DIR, _CLOSENESS_DIR, _TRUSTRANK_DIR, _STATIC_DIR]:
-    dir.mkdir(exist_ok=True, parents=True)
+for directory in [
+    _DIAMOND_DIR,
+    _MUST_DIR,
+    _ROBUST_DIR,
+    _BICON_DIR,
+    _GRAPH_DIR,
+    _CLOSENESS_DIR,
+    _TRUSTRANK_DIR,
+    _STATIC_DIR,
+]:
+    directory.mkdir(exist_ok=True, parents=True)
 
 
 limiter = Limiter(
@@ -87,15 +96,15 @@ def generate_ranking_static_files():
         return
 
     logger.info("generating static files for ranking routes")
-    p = _subprocess.Popen(
+    proc = _subprocess.Popen(
         ["python", f"{_config['api.directories.scripts']}/generate_ranking_input_networks.py"],
         cwd=_config["api.directories.static"],
         stdout=_subprocess.PIPE,
         stderr=_subprocess.PIPE,
     )
-    p.communicate()
+    proc.communicate()
 
-    if p.returncode == 0:
+    if proc.returncode == 0:
         logger.info("static files for ranking routes generated successfully")
         _STATUS["static-ranking"] = True
     else:
@@ -116,15 +125,15 @@ def generate_validation_static_files():
     logger.info("generating static files (GGI and PPI) for validation methods")
     network_generator_script = f"{_config['api.directories.scripts']}/nedrex_validation/network_generator.py"
 
-    p = _subprocess.Popen(
+    proc = _subprocess.Popen(
         ["python", network_generator_script],
         cwd=_config["api.directories.static"],
         stdout=_subprocess.PIPE,
         stderr=_subprocess.PIPE,
     )
-    p.communicate()
+    proc.communicate()
 
-    if p.returncode == 0:
+    if proc.returncode == 0:
         logger.info("static files for validation routes generated successfully")
         _STATUS["static-validation"] = True
     else:
@@ -152,12 +161,13 @@ def check_api_key(api_key: Optional[str]) -> bool:
         raise _HTTPException(status_code=401, detail="An API key is required to access the requested data")
 
     entry = _API_KEY_COLLECTION.find_one({"key": api_key})
+
     if not entry:
         raise _HTTPException(
             status_code=401,
             detail="Invalid API key supplied. If they key has worked before, it may have expired or been revoked.",
         )
-    elif entry["expiry"] < _datetime.datetime.utcnow():
+    if entry["expiry"] < _datetime.datetime.utcnow():
         raise _HTTPException(status_code=401, detail="An expired API key was supplied")
 
     return True

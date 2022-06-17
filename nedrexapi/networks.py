@@ -5,7 +5,10 @@ from pottery import Redlock, redis_cache
 
 from nedrexapi.common import _REDIS
 from nedrexapi.config import config
+from nedrexapi.logger import logger
 
+_NEWLINE = "\n"
+_NEWLINE_TAB = "\n\t"
 _NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{config['db.dev.neo4j_bolt_port']}")
 
 
@@ -41,18 +44,25 @@ NETWORK_GEN_LOCK = Redlock(key="network_generation_lock", masters={_REDIS}, auto
 
 
 def get_network(query, prefix, type):
+    logger.info(f"obtaining {type} network for query:{_NEWLINE_TAB}{query.strip().replace(_NEWLINE, _NEWLINE_TAB)}")
     with NETWORK_GEN_LOCK:
-        print("I have the lock and am getting my network!")
+        logger.debug("obtained network generation lock")
+
         if type == "edge_list":
-            return get_network_edge_list(query, prefix)
+            network = get_network_edge_list(query, prefix)
+            logger.info("network obtained")
+            return network
         elif type == "sif":
-            return get_network_sif(query, prefix)
+            network = get_network_sif(query, prefix)
+            logger.info("network obtained")
+            return network
         else:
             raise Exception("invalid type given")
 
 
 @redis_cache(redis=_REDIS, key="edge-list-generation-cache", timeout=int(1e10))
 def get_network_edge_list(query, prefix):
+
     outfile = f"/tmp/{_uuid4()}.tsv"
 
     with _NEO4J_DRIVER.session() as session, open(outfile, "w") as f:

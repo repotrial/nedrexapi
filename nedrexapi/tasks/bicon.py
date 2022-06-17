@@ -134,4 +134,4 @@ def run_bicon(uid):
     with _BICON_COLL_LOCK:
         _BICON_COLL.update_one({"uid": uid}, {"$set": {"status": "completed", "result": results}})
 
-    logger.info(f"finished BiCoN job {uid!r}")
+    logger.success(f"finished BiCoN job {uid!r}")

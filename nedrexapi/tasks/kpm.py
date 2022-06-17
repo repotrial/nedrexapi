@@ -103,3 +103,5 @@ def run_kpm(uid):
 
     with _KPM_COLL_LOCK:
         _KPM_COLL.update_one({"uid": uid}, {"$set": {"status": "completed", "results": results}})
+
+    logger.success(f"finished KPM job {uid!r}")
