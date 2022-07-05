@@ -4,7 +4,6 @@ from fastapi import APIRouter as _APIRouter
 from fastapi.responses import StreamingResponse
 from more_itertools import chunked
 
-# from neo4j import GraphDatabase as _GraphDatabase  # type: ignore
 from py2neo import Graph  # type: ignore
 
 from nedrexapi.config import config as _config
