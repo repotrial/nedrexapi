@@ -246,7 +246,7 @@ def graph_details(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
         data.pop("_id")
         return data
 
-    raise _HTTPException(status_code=422, detail=f"No graph with UID {uid!r} is recorded.")
+    raise _HTTPException(status_code=404, detail=f"No graph with UID {uid!r} is recorded.")
 
 
 @router.get("/download/{uid}.graphml", summary="Graph download")
@@ -259,9 +259,12 @@ def graph_download(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
 
     if data and data["status"] == "completed":
         return _Response((_GRAPH_DIR / f"{uid}.graphml").open("r").read(), media_type="text/plain")
-    elif data and data["status"] != "completed":
-        raise _HTTPException(status_code=404, detail=f"Graph with UID {uid!r} does not have completed status.")
-    # If data doesn't exist, means that the graph with the UID supplied does not exist.
+    elif data and data["status"] == "running":
+        raise _HTTPException(status_code=102, detail=f"Graph with UID {uid!r} does not have completed status.")
+    elif data and data["status"] == "failed":
+        raise _HTTPException(
+            status_code=404, detail=f"No results are available for graph build with UID {uid!r} (failed)"
+        )
     elif not data:
         raise _HTTPException(status_code=404, detail=f"No graph with UID {uid!r} is recorded.")
 
@@ -281,8 +284,11 @@ def graph_download_ii(fname: str, uid: str, x_api_key: str = _API_KEY_HEADER_ARG
     if data and data["status"] == "completed":
         return _Response((_GRAPH_DIR / f"{uid}.graphml").open("r").read(), media_type="text/plain")
 
-    elif data and data["status"] != "completed":
-        raise _HTTPException(status_code=404, detail=f"Graph with UID {uid!r} does not have completed status.")
-    # If data doesn't exist, means that the graph with the UID supplied does not exist.
+    elif data and data["status"] == "running":
+        raise _HTTPException(status_code=102, detail=f"Graph with UID {uid!r} does not have completed status.")
+    elif data and data["status"] == "failed":
+        raise _HTTPException(
+            status_code=404, detail=f"No results are available for graph build with UID {uid!r} (failed)"
+        )
     elif not data:
         raise _HTTPException(status_code=404, detail=f"No graph with UID {uid!r} is recorded.")

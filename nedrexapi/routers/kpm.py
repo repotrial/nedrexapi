@@ -44,9 +44,9 @@ def kpm_submit(
     TODO: Document
     """
     if not kr.seeds:
-        raise HTTPException(status_code=404, detail="No seeds submitted")
+        raise HTTPException(status_code=400, detail="No seeds submitted")
     if not kr.k:
-        raise HTTPException(status_code=404, detail="No value for K given")
+        raise HTTPException(status_code=400, detail="No value for K given")
 
     new_seeds, seed_type = normalise_seeds_and_determine_type(kr.seeds)
     kr.seeds = new_seeds

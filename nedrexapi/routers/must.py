@@ -45,25 +45,25 @@ async def must_submit(background_tasks: _BackgroundTasks, mr: MustRequest = _DEF
       - `trees` - a parameter used to indicate the number of trees to be returned
     """
     if not mr.seeds:
-        raise _HTTPException(status_code=404, detail="No seeds submitted")
+        raise _HTTPException(status_code=400, detail="No seeds submitted")
     if mr.hubpenalty is None:
-        raise _HTTPException(status_code=404, detail="Hub penalty not specified")
+        raise _HTTPException(status_code=400, detail="Hub penalty not specified")
     if mr.multiple is None:
-        raise _HTTPException(status_code=404, detail="Multiple is not specified")
+        raise _HTTPException(status_code=400, detail="Multiple is not specified")
     if mr.trees is None:
-        raise _HTTPException(status_code=404, detail="Trees is not specified")
+        raise _HTTPException(status_code=400, detail="Trees is not specified")
     if mr.maxit is None:
-        raise _HTTPException(status_code=404, detail="Max iterations is not specified")
+        raise _HTTPException(status_code=400, detail="Max iterations is not specified")
 
     new_seeds, seed_type = normalise_seeds_and_determine_type(mr.seeds)
     mr.seeds = new_seeds
 
     if not 0.0 <= mr.hubpenalty <= 1.0:
-        raise _HTTPException(status_code=404, detail=f"Hub penalty given ({mr.hubpenalty}) is not between 0.0 and 1.0")
+        raise _HTTPException(status_code=422, detail=f"Hub penalty given ({mr.hubpenalty}) is not between 0.0 and 1.0")
     if not mr.trees > 0:
-        raise _HTTPException(status_code=404, detail="Trees must be greater than zero")
+        raise _HTTPException(status_code=422, detail="Trees must be greater than zero")
     if not mr.maxit > 0:
-        raise _HTTPException(status_code=404, detail="Max iterations must be greater than zero")
+        raise _HTTPException(status_code=422, detail="Max iterations must be greater than zero")
 
     query = {
         "seeds": sorted(mr.seeds),
@@ -100,6 +100,6 @@ def must_status(uid: str):
     query = {"uid": uid}
     result = _MUST_COLL.find_one(query)
     if not result:
-        return {}
+        raise _HTTPException(status_code=404, detail=f"No MuST job with UID {uid!r}")
     result.pop("_id")
     return result

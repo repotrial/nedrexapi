@@ -55,7 +55,7 @@ def trustrank_submit(
     x_api_key: str = _API_KEY_HEADER_ARG,
 ):
     if not tr.seeds:
-        raise _HTTPException(status_code=404, detail="No seeds submitted")
+        raise _HTTPException(status_code=400, detail="No seeds submitted")
 
     if tr.damping_factor is None:
         tr.damping_factor = 0.85
@@ -109,6 +109,9 @@ def trustrank_download(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     result = _TRUSTRANK_COLL.find_one(query)
     if not result:
         raise _HTTPException(status_code=404, detail=f"No TrustRank job with UID {uid!r}")
-    if not result["status"] == "completed":
-        raise _HTTPException(status_code=404, detail=f"TrustRank job with uid {uid!r} does not have completed status")
+    if result["status"] == "running":
+        raise _HTTPException(status_code=102, detail=f"TrustRank job with uid {uid!r} is still running")
+    if result["status"] == "failed":
+        raise _HTTPException(status_code=404, detail=f"No results TrustRank job with UID {uid!r} (failed)")
+
     return _Response((_TRUSTRANK_DIR / f"{uid}.txt").open("rb").read(), media_type="text/plain")

@@ -66,7 +66,7 @@ def api_key_verify(
     )
 ):
     if x_api_key is None:
-        raise _HTTPException(status_code=404, detail="No API key provided")
+        raise _HTTPException(status_code=400, detail="No API key provided")
 
     try:
         check_api_key(x_api_key)
@@ -78,7 +78,7 @@ def api_key_verify(
 @router.post("/api_key/generate", include_in_schema=False)
 def api_key_generate(kgr: APIKeyGenRequest = DEFAULT_APIKG):
     if getattr(kgr, "accept_eula", False) is not True:
-        raise _HTTPException(status_code=404, detail="You must accept the EULA to generate a key")
+        raise _HTTPException(status_code=422, detail="You must accept the EULA to generate a key")
 
     new_key = secrets.token_urlsafe(32)
     while API_KEY_COLLECTION.find_one({"key": new_key}):
@@ -99,7 +99,7 @@ def api_key_revoke(
     )
 ):
     if x_api_key is None:
-        raise _HTTPException(status_code=404, detail="No API key provided")
+        raise _HTTPException(status_code=400, detail="No API key provided")
 
     entry = API_KEY_COLLECTION.find_one({"key": x_api_key})
 

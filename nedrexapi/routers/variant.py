@@ -158,7 +158,7 @@ def get_variant_gene_associations(
     if limit is None:
         limit = config["api.pagination_max"]
     elif limit > config["api.pagination_max"]:
-        raise _HTTPException(status_code=404, detail=f"Limit cannot be greater than {config['api.pagination_max']:,}")
+        raise _HTTPException(status_code=422, detail=f"Limit cannot be greater than {config['api.pagination_max']:,}")
 
     query = {}
     if variant_ids is not None:
@@ -197,7 +197,7 @@ def variant_based_genes_associated_with_disorder(
     Identifies genes associated with a disorder, using variants as an intermediary.
     """
     if disorder_id is None:
-        raise _HTTPException(status_code=404, detail="No disorder ID specified")
+        raise _HTTPException(status_code=400, detail="No disorder ID specified")
 
     page_max = config["api.pagination_max"]
 
@@ -209,8 +209,13 @@ def variant_based_genes_associated_with_disorder(
         items = [
             doc["sourceDomainId"]
             for doc in get_variant_disorder_associations(
-                variant_ids=None, disorder_ids=[disorder_id], review_status=review_status, effects=effects, offset=offset, limit=page_max,
-                )
+                variant_ids=None,
+                disorder_ids=[disorder_id],
+                review_status=review_status,
+                effects=effects,
+                offset=offset,
+                limit=page_max,
+            )
         ]
 
         variant_ids += items
@@ -226,10 +231,8 @@ def variant_based_genes_associated_with_disorder(
 
     while True:
         items = [
-            doc['targetDomainId']
-            for doc in get_variant_gene_associations(
-                variant_ids, gene_ids=None, limit=page_max, offset=offset
-                )
+            doc["targetDomainId"]
+            for doc in get_variant_gene_associations(variant_ids, gene_ids=None, limit=page_max, offset=offset)
         ]
 
         results += items
@@ -267,7 +270,7 @@ def variant_based_disorders_associated_with_gene(
     Searches NeDRexDB for disorders associated with a gene, using variants as an intermediary.
     """
     if gene_id is None:
-        raise _HTTPException(status_code=404, detail="No gene ID specified")
+        raise _HTTPException(status_code=400, detail="No gene ID specified")
 
     page_max = config["api.pagination_max"]
 
@@ -296,7 +299,7 @@ def variant_based_disorders_associated_with_gene(
     offset = 0
     while True:
         items = [
-            doc['targetDomainId']
+            doc["targetDomainId"]
             for doc in get_variant_disorder_associations(
                 variant_ids=variant_ids,
                 review_status=review_status,

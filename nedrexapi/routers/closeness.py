@@ -50,7 +50,7 @@ def closeness_submit(
     x_api_key: str = _API_KEY_HEADER_ARG,
 ):
     if not cr.seeds:
-        raise _HTTPException(status_code=404, detail="No seeds submitted")
+        raise _HTTPException(status_code=400, detail="No seeds submitted")
     if cr.only_direct_drugs is None:
         cr.only_direct_drugs = True
     if cr.only_approved_drugs is None:
@@ -100,7 +100,9 @@ def closeness_download(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     result = _CLOSENESS_COLL.find_one(query)
     if not result:
         raise _HTTPException(status_code=404, detail=f"No closeness job with UID {uid!r}")
-    if not result["status"] == "completed":
-        raise _HTTPException(status_code=404, detail=f"Closeness job with UID {uid!r} does not have completed status")
+    if result["status"] == "running":
+        raise _HTTPException(status_code=102, detail=f"Closeness job with UID {uid!r} is still running")
+    if result["status"] == "failed":
+        raise _HTTPException(status_code=404, detail=f"No results for closeness job with UID {uid!r} (failed)")
 
     return _Response((_CLOSENESS_DIR / f"{uid}.txt").open("rb").read(), media_type="text/plain")

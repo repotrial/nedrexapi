@@ -20,6 +20,7 @@ from nedrexapi.routers import general as _general
 from nedrexapi.routers import graph as _graph
 from nedrexapi.routers import kpm as _kpm
 from nedrexapi.routers import must as _must
+from nedrexapi.routers import neo4j as _neo4j
 from nedrexapi.routers import ppi as _ppi
 from nedrexapi.routers import relations as _relations
 from nedrexapi.routers import robust as _robust
@@ -73,3 +74,4 @@ app.include_router(_closeness.router, prefix="/closeness", tags=["Closeness"])
 app.include_router(_validation.router, prefix="/validation", tags=["Validation"])
 app.include_router(_admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(_variant.router, prefix="/variants", tags=["Variants"])
+app.include_router(_neo4j.router, prefix="/neo4j", tags=["Neo4j"])

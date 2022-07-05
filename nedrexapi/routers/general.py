@@ -1,4 +1,3 @@
-from collections import defaultdict
 from csv import DictWriter as _DictWriter
 from io import StringIO as _StringIO
 from typing import Optional
@@ -36,7 +35,7 @@ def pagination_maximum(x_api_key: str = _API_KEY_HEADER_ARG):
 )
 def api_key_setting():
     """Returns true if API keys are required (and false otherwise)"""
-    return config['api.require_api_keys']
+    return config["api.require_api_keys"]
 
 
 @router.get(
@@ -109,20 +108,26 @@ def list_attributes(t: str, include_counts: bool = False, x_api_key: str = _API_
     if t not in config["api.node_collections"] + config["api.edge_collections"]:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
 
+    data = MongoInstance.DB()["_collections"].find_one({"collection": t})
+
+    if not data:
+        raise _HTTPException(
+            status_code=404,
+            detail=(
+                f"Collection attribute values are expecectedly not available for {t!r}"
+                "(please raise an issue on GitHub)"
+            ),
+        )
+
     if include_counts:
-        counter = 0
-        attr_counts: dict[str, int] = defaultdict(int)
+        counts = data["attribute_counts"]
 
-        for doc in MongoInstance.DB()[t].find():
-            counter += 1
-            for attr in doc.keys():
-                attr_counts[attr] += 1
+        if "_id" in counts:
+            del counts["_id"]
 
-        return {"document_count": counter, "attribute_counts": attr_counts}
+        return {"document_count": data["document_count"], "attribute_counts": counts}
 
-    attributes: set[str] = set()
-    for doc in MongoInstance.DB()[t].find():
-        attributes |= set(doc.keys())
+    attributes = data["unique_attributes"]
     attributes.remove("_id")
     return attributes
 
@@ -208,7 +213,7 @@ def get_node_attribute_values(
     if limit is None:
         limit = config["api.pagination_max"]
     elif limit > config["api.pagination_max"]:
-        raise _HTTPException(status_code=404, detail=f"Limit cannot be greater than {config['api.pagination_max']:,}")
+        raise _HTTPException(status_code=422, detail=f"Limit cannot be greater than {config['api.pagination_max']:,}")
 
     kwargs = {}
     if offset is not None:
@@ -293,7 +298,7 @@ def list_all_collection_items(t: str, offset: int = None, limit: int = None, x_a
     if limit is None:
         limit = config["api.pagination_max"]
     elif limit > config["api.pagination_max"]:
-        raise _HTTPException(status_code=404, detail=f"Limit cannot be greater than {config['api.pagination_max']:,}")
+        raise _HTTPException(status_code=422, detail=f"Limit cannot be greater than {config['api.pagination_max']:,}")
 
     kwargs = {}
     if offset is not None:

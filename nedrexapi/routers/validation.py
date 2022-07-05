@@ -85,12 +85,12 @@ def joint_validation_submit(
     if jvr.permutations is None:
         raise _HTTPException(status_code=400, detail="permutations must be specified")
     if not 1_000 <= jvr.permutations <= 10_000:
-        raise _HTTPException(status_code=400, detail="permutations must be in [1000, 10,000]")
+        raise _HTTPException(status_code=422, detail="permutations must be in [1000, 10,000]")
 
     if not jvr.module_members:
         raise _HTTPException(status_code=400, detail="module_members must be specified and cannot be empty")
     if jvr.module_member_type.lower() not in ("gene", "protein"):
-        raise _HTTPException(status_code=400, detail="module_member_type must be one of `gene|protein`")
+        raise _HTTPException(status_code=422, detail="module_member_type must be one of `gene|protein`")
 
     # Form the MongoDB document.
     record: dict[str, _Any] = {}
@@ -154,12 +154,12 @@ def module_validation_submit(
     if mvr.permutations is None:
         raise _HTTPException(status_code=400, detail="permutations must be specified")
     if not 1_000 <= mvr.permutations <= 10_000:
-        raise _HTTPException(status_code=400, detail="permutations must be in `[1,000, 10,000]`")
+        raise _HTTPException(status_code=422, detail="permutations must be in `[1,000, 10,000]`")
 
     if not mvr.module_members:
         raise _HTTPException(status_code=400, detail="module_members must be specified and cannot be empty")
     if mvr.module_member_type.lower() not in ("gene", "protein"):
-        raise _HTTPException(status_code=400, detail="module_member_type must be one of `gene|protein`")
+        raise _HTTPException(status_code=422, detail="module_member_type must be one of `gene|protein`")
 
     # Set up the record to query for the document
     record: dict[str, _Any] = {}
@@ -220,7 +220,7 @@ def drug_validation_submit(
     if dvr.permutations is None:
         raise _HTTPException(status_code=400, detail="permuations must be specified")
     if not 1_000 <= dvr.permutations <= 10_000:
-        raise _HTTPException(status_code=400, detail="permutations must be in `[1,000, 10,000]`")
+        raise _HTTPException(status_code=422, detail="permutations must be in `[1,000, 10,000]`")
 
     record = {}
     record["test_drugs"] = standardize_drugbank_score_list(sorted(dvr.test_drugs, key=lambda i: (i[1], i[0])))

@@ -77,9 +77,9 @@ def diamond_submit(
     Interactome](https://doi.org/10.1371/journal.pcbi.1004120)
     """
     if not dr.seeds:
-        raise _HTTPException(status_code=404, detail="No seeds submitted")
+        raise _HTTPException(status_code=400, detail="No seeds submitted")
     if not dr.n:
-        raise _HTTPException(status_code=404, detail="Number of results to return is not specified")
+        raise _HTTPException(status_code=400, detail="Number of results to return is not specified")
 
     new_seeds, seed_type = normalise_seeds_and_determine_type(dr.seeds)
     dr.seeds = new_seeds
@@ -87,7 +87,7 @@ def diamond_submit(
     if dr.edges is None:
         dr.edges = "all"
     if dr.edges not in {"all", "limited"}:
-        raise _HTTPException(status_code=404, detail="If specified, edges must be `limited` or `all`")
+        raise _HTTPException(status_code=422, detail="If specified, edges must be `limited` or `all`")
 
     query = {
         "seeds": sorted(dr.seeds),
@@ -136,7 +136,9 @@ def diamond_download(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     result = _DIAMOND_COLL.find_one(query)
     if not result:
         raise _HTTPException(status_code=404, detail=f"No DIAMOnD job with UID {uid!r}")
-    if not result["status"] == "completed":
-        raise _HTTPException(status_code=404, detail=f"DIAMOnD job with UID do {uid!r} does not have completed status")
+    if result["status"] == "running":
+        raise _HTTPException(status_code=102, detail=f"DIAMOnD job with UID {uid!r} is still running")
+    if result["status"] == "failed":
+        raise _HTTPException(status_code=404, detail=f"No results for DIAMOnD job with UID {uid!r} (failed)")
 
     return _Response((_DIAMOND_DIR / (f"{uid}.txt")).open("rb").read(), media_type="text/plain")

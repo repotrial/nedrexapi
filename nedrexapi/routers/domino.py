@@ -39,7 +39,7 @@ def domino_submit(
     TODO: Document
     """
     if not dr.seeds:
-        raise HTTPException(status_code=404, detail="No seeds submitted")
+        raise HTTPException(status_code=400, detail="No seeds submitted")
 
     new_seeds, seed_type = normalise_seeds_and_determine_type(dr.seeds)
     dr.seeds = new_seeds
@@ -71,6 +71,6 @@ def domino_status(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     query = {"uid": uid}
     result = _DOMINO_COLL.find_one(query)
     if not result:
-        return {}
+        raise HTTPException(status_code=404, detail=f"No DOMINO job with UID {uid!r}")
     result.pop("_id")
     return result

@@ -98,10 +98,14 @@ def bicon_status(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
 def bicon_clustermap(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     query = {"uid": uid}
     result = _BICON_COLL.find_one(query)
+
     if not result:
         raise _HTTPException(status_code=404, detail=f"No BiCoN job with UID {uid}")
-    if not result["status"] == "completed":
-        raise _HTTPException(status_code=404, detail=f"BiCoN job with UID {uid} does not have completed status")
+    if result["status"] == "running":
+        raise _HTTPException(status_code=102, detail=f"BiCoN job with UID {uid!r} is still running")
+    if result["status"] == "failed":
+        raise _HTTPException(status_code=404, detail=f"No results for BiCoN job with UID {uid!r} (failed)")
+
     with _zipfile.ZipFile(_BICON_DIR / (uid + ".zip"), "r") as f:
         x = f.open(f"{uid}/clustermap.png").read()
     return _Response(x, media_type="text/plain")
@@ -114,6 +118,9 @@ def bicon_download(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     result = _BICON_COLL.find_one(query)
     if not result:
         raise _HTTPException(status_code=404, detail=f"No BiCoN job with UID {uid}")
-    if not result["status"] == "completed":
-        raise _HTTPException(status_code=404, detail=f"BiCoN job with UID {uid} does not have completed status")
+    if result["status"] == "running":
+        raise _HTTPException(status_code=102, detail=f"BiCoN job with UID {uid!r} is still running")
+    if result["status"] == "failed":
+        raise _HTTPException(status_code=404, detail=f"No results for BiCoN job with UID {uid!r} (failed)")
+
     return _Response((_BICON_DIR / (uid + ".zip")).open("rb").read(), media_type="text/plain")

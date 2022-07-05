@@ -46,7 +46,7 @@ def robust_submit(
     TODO: Document
     """
     if not rr.seeds:
-        raise HTTPException(status_code=404, detail="No seeds submitted")
+        raise HTTPException(status_code=400, detail="No seeds submitted")
 
     new_seeds, seed_type = normalise_seeds_and_determine_type(rr.seeds)
     rr.seeds = new_seeds
@@ -93,9 +93,11 @@ def robust_results(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     query = {"uid": uid}
     result = _ROBUST_COLL.find_one(query)
     if not result:
-        raise HTTPException(status_code=404, detail=f"No ROBUST job with UID {uid}")
-    if not result["status"] == "completed":
-        raise HTTPException(status_code=404, detail=f"ROBUST job with UID {uid} does not have completed status")
+        raise HTTPException(status_code=404, detail=f"No ROBUST job with UID {uid!r}")
+    if result["status"] == "running":
+        raise HTTPException(status_code=102, detail=f"ROBUST job with UID {uid!r} is still running")
+    if result["status"] == "failed":
+        raise HTTPException(status_code=404, detail=f"No results for ROBUST job with UID {uid!r} (failed)")
     with open(f"{_ROBUST_DIR}/{uid}.graphml") as f:
         x = f.read()
     return Response(x, media_type="text/plain")

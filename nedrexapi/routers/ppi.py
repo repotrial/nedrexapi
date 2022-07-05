@@ -31,7 +31,7 @@ def get_paginated_protein_protein_interactions(
     if not limit:
         limit = _config["api.pagination_max"]
     elif limit > _config["api.pagination_max"]:
-        raise _HTTPException(status_code=404, detail=f"Limit specified ({limit}) greater than maximum limit allowed")
+        raise _HTTPException(status_code=422, detail=f"Limit specified ({limit}) greater than maximum limit allowed")
 
     query = {"evidenceTypes": {"$in": iid_evidence}}
     coll_name = "protein_interacts_with_protein"
