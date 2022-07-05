@@ -34,7 +34,7 @@ DEFAULT_EDGE_COLLECTIONS = [
 def check_values(supplied, valid, property_name):
     invalid = [i for i in supplied if i not in valid]
     if invalid:
-        raise _HTTPException(status_code=404, detail=f"Invalid value(s) for {property_name}: {invalid!r}")
+        raise _HTTPException(status_code=422, detail=f"Invalid value(s) for {property_name}: {invalid!r}")
 
 
 class BuildRequest(_BaseModel):
@@ -246,7 +246,7 @@ def graph_details(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
         data.pop("_id")
         return data
 
-    raise _HTTPException(status_code=404, detail=f"No graph with UID {uid!r} is recorded.")
+    raise _HTTPException(status_code=422, detail=f"No graph with UID {uid!r} is recorded.")
 
 
 @router.get("/download/{uid}.graphml", summary="Graph download")

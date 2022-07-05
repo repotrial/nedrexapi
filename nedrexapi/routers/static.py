@@ -64,8 +64,7 @@ def get_metadata(x_api_key: str = _API_KEY_HEADER_ARG):
 
 
 @router.get("/licence", summary="Licence for the NeDRex platform")
-@check_api_key_decorator
-def get_licence(x_api_key: str = _API_KEY_HEADER_ARG):
+def get_licence():
     url = "https://raw.githubusercontent.com/repotrial/nedrex_platform_licence/main/licence.txt"
     return _Response(urlopen(url).read(), media_type="text/plain")
 

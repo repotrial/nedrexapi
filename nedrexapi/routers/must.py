@@ -58,6 +58,13 @@ async def must_submit(background_tasks: _BackgroundTasks, mr: MustRequest = _DEF
     new_seeds, seed_type = normalise_seeds_and_determine_type(mr.seeds)
     mr.seeds = new_seeds
 
+    if not 0.0 <= mr.hubpenalty <= 1.0:
+        raise _HTTPException(status_code=404, detail=f"Hub penalty given ({mr.hubpenalty}) is not between 0.0 and 1.0")
+    if not mr.trees > 0:
+        raise _HTTPException(status_code=404, detail="Trees must be greater than zero")
+    if not mr.maxit > 0:
+        raise _HTTPException(status_code=404, detail="Max iterations must be greater than zero")
+
     query = {
         "seeds": sorted(mr.seeds),
         "seed_type": seed_type,

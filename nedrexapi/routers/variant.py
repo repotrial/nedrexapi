@@ -134,6 +134,14 @@ def get_variant_gene_associations(
         description="Default: `None` (no filtering on gene IDs)",
         alias="gene_id",
     ),
+    limit: Optional[int] = _Query(
+        None, title="Limit number of results returned", description=f"Default: `{config['api.pagination_max']}`"
+    ),
+    offset: Optional[int] = _Query(
+        None,
+        title="Offset to use for paginated queries",
+        description="Default: `0`",
+    ),
     x_api_key: str = _API_KEY_HEADER_ARG,
 ):
     """
@@ -144,13 +152,21 @@ def get_variant_gene_associations(
     one of the variant IDs specified and the gene is one of the gene IDs specified.
     """
 
+    if offset is None:
+        offset = 0
+
+    if limit is None:
+        limit = config["api.pagination_max"]
+    elif limit > config["api.pagination_max"]:
+        raise _HTTPException(status_code=404, detail=f"Limit cannot be greater than {config['api.pagination_max']:,}")
+
     query = {}
     if variant_ids is not None:
         query["sourceDomainId"] = {"$in": variant_ids}
     if gene_ids is not None:
         query["targetDomainId"] = {"$in": gene_ids}
 
-    results = list(MongoInstance.DB()["variant_affects_gene"].find(query))
+    results = list(MongoInstance.DB()["variant_affects_gene"].find(query, skip=offset, limit=limit, sort=[("_id", 1)]))
     [i.pop("_id") for i in results]
     return results
 
@@ -183,14 +199,47 @@ def variant_based_genes_associated_with_disorder(
     if disorder_id is None:
         raise _HTTPException(status_code=404, detail="No disorder ID specified")
 
-    variant_ids = [
-        doc["sourceDomainId"]
-        for doc in get_variant_disorder_associations(
-            variant_ids=None, disorder_ids=[disorder_id], review_status=review_status, effects=effects
-        )
-    ]
+    page_max = config["api.pagination_max"]
 
-    return sorted(set(doc["targetDomainId"] for doc in get_variant_gene_associations(variant_ids, gene_ids=None)))
+    # Get variants associated with the disorder
+    variant_ids = []
+    offset = 0
+
+    while True:
+        items = [
+            doc["sourceDomainId"]
+            for doc in get_variant_disorder_associations(
+                variant_ids=None, disorder_ids=[disorder_id], review_status=review_status, effects=effects, offset=offset, limit=page_max,
+                )
+        ]
+
+        variant_ids += items
+
+        if len(items) == page_max:
+            offset += page_max
+        else:
+            break
+
+    # Get genes associated with the variants
+    results = []
+    offset = 0
+
+    while True:
+        items = [
+            doc['targetDomainId']
+            for doc in get_variant_gene_associations(
+                variant_ids, gene_ids=None, limit=page_max, offset=offset
+                )
+        ]
+
+        results += items
+
+        if len(items) == page_max:
+            offset += page_max
+        else:
+            break
+
+    return sorted(set(results))
 
 
 @router.get("/variant_based_gene_associated_disorders", summary="Get variant-based disorders associated with a gene")
@@ -220,22 +269,49 @@ def variant_based_disorders_associated_with_gene(
     if gene_id is None:
         raise _HTTPException(status_code=404, detail="No gene ID specified")
 
-    variant_ids = [
-        doc["sourceDomainId"]
-        for doc in get_variant_gene_associations(
-            gene_ids=[gene_id],
-            variant_ids=None,
-        )
-    ]
+    page_max = config["api.pagination_max"]
 
-    return sorted(
-        set(
-            doc["targetDomainId"]
+    variant_ids = []
+    offset = 0
+
+    while True:
+        items = [
+            doc["sourceDomainId"]
+            for doc in get_variant_gene_associations(
+                gene_ids=[gene_id],
+                variant_ids=None,
+                offset=offset,
+                limit=page_max,
+            )
+        ]
+
+        variant_ids += items
+
+        if len(items) == page_max:
+            offset += page_max
+        else:
+            break
+
+    results = []
+    offset = 0
+    while True:
+        items = [
+            doc['targetDomainId']
             for doc in get_variant_disorder_associations(
                 variant_ids=variant_ids,
                 review_status=review_status,
                 effects=effects,
                 disorder_ids=None,
+                offset=offset,
+                limit=page_max,
             )
-        )
-    )
+        ]
+
+        results += items
+
+        if len(items) == page_max:
+            offset += page_max
+        else:
+            break
+
+    return sorted(set(results))

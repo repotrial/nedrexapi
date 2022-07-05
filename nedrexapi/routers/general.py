@@ -1,3 +1,4 @@
+from collections import defaultdict
 from csv import DictWriter as _DictWriter
 from io import StringIO as _StringIO
 from typing import Optional
@@ -17,6 +18,25 @@ router = _APIRouter()
 
 
 DEFAULT_QUERY = _Query(None)
+
+
+@router.get(
+    "/pagination_max",
+    summary="Pagination limit",
+)
+@check_api_key_decorator
+def pagination_maximum(x_api_key: str = _API_KEY_HEADER_ARG):
+    """Returns the pagination maximum for the API"""
+    return config["api.pagination_max"]
+
+
+@router.get(
+    "/api_key_setting",
+    summary="API key setting",
+)
+def api_key_setting():
+    """Returns true if API keys are required (and false otherwise)"""
+    return config['api.require_api_keys']
 
 
 @router.get(
@@ -85,9 +105,20 @@ def list_edge_collections(x_api_key: str = _API_KEY_HEADER_ARG):
 )
 @_cached(cache=_LRUCache(maxsize=32))
 @check_api_key_decorator
-def list_attributes(t: str, x_api_key: str = _API_KEY_HEADER_ARG):
+def list_attributes(t: str, include_counts: bool = False, x_api_key: str = _API_KEY_HEADER_ARG):
     if t not in config["api.node_collections"] + config["api.edge_collections"]:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
+
+    if include_counts:
+        counter = 0
+        attr_counts: dict[str, int] = defaultdict(int)
+
+        for doc in MongoInstance.DB()[t].find():
+            counter += 1
+            for attr in doc.keys():
+                attr_counts[attr] += 1
+
+        return {"document_count": counter, "attribute_counts": attr_counts}
 
     attributes: set[str] = set()
     for doc in MongoInstance.DB()[t].find():

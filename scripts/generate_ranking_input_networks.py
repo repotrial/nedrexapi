@@ -9,7 +9,7 @@ import networkx as nx
 apiNetwork_path = "/home/james/nedrex/nedrex_api/static/"
 os.chdir(apiNetwork_path)
 # get the network containing protein-protein and protein-drug interactions with proper parameters via API
-base_url = "http://82.148.225.92:8022"
+base_url = "http://82.148.225.92:8123"
 submit_url = f"{base_url}/graph/builder"
 
 data = {
