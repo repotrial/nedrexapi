@@ -9,7 +9,7 @@ from fastapi import HTTPException as _HTTPException
 from fastapi import Query as _Query
 from fastapi import Response as _Response
 
-from nedrexapi.common import _API_KEY_HEADER_ARG, check_api_key_decorator
+from nedrexapi.common import _API_KEY_HEADER_ARG, check_api_key_decorator, NODE_COLLECTIONS, EDGE_COLLECTIONS
 from nedrexapi.config import config
 from nedrexapi.db import MongoInstance
 
@@ -45,7 +45,7 @@ def api_key_setting():
 )
 @check_api_key_decorator
 def list_node_collections(x_api_key: str = _API_KEY_HEADER_ARG):
-    return sorted(config["api.node_collections"])
+    return sorted(NODE_COLLECTIONS)
 
 
 @router.get(
@@ -75,7 +75,7 @@ def list_node_collections(x_api_key: str = _API_KEY_HEADER_ARG):
 )
 @check_api_key_decorator
 def list_edge_collections(x_api_key: str = _API_KEY_HEADER_ARG):
-    return sorted(config["api.edge_collections"])
+    return sorted(EDGE_COLLECTIONS)
 
 
 @router.get(
@@ -105,7 +105,7 @@ def list_edge_collections(x_api_key: str = _API_KEY_HEADER_ARG):
 @_cached(cache=_LRUCache(maxsize=32))
 @check_api_key_decorator
 def list_attributes(t: str, include_counts: bool = False, x_api_key: str = _API_KEY_HEADER_ARG):
-    if t not in config["api.node_collections"] + config["api.edge_collections"]:
+    if t not in NODE_COLLECTIONS + EDGE_COLLECTIONS:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
 
     data = MongoInstance.DB()["_collections"].find_one({"collection": t})
@@ -135,11 +135,11 @@ def list_attributes(t: str, include_counts: bool = False, x_api_key: str = _API_
 @router.get("/{t}/attributes/{attribute}/{format}", summary="Get attribute values")
 @check_api_key_decorator
 def get_attribute_values(t: str, attribute: str, format: str, x_api_key: str = _API_KEY_HEADER_ARG):
-    if t in config["api.node_collections"]:
+    if t in NODE_COLLECTIONS:
         results = [
             {"primaryDomainId": i["primaryDomainId"], attribute: i.get(attribute)} for i in MongoInstance.DB()[t].find()
         ]
-    elif t in config["api.edge_collections"]:
+    elif t in EDGE_COLLECTIONS:
         try:
             results = [
                 {
@@ -199,7 +199,7 @@ def get_node_attribute_values(
     # Singular is used for arguments because this makes sense to a user.
     # Aliasing to plural here as node_id and attribute are actually lists of 1+ strings.
 
-    if t not in config.get("api.node_collections"):
+    if t not in NODE_COLLECTIONS:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
     if attributes is None:
         # get all attributes for the type
@@ -269,7 +269,7 @@ def collection_details(t: str, x_api_key: str = _API_KEY_HEADER_ARG):
     Returns a hash map of the details for the collection, `t`, including size (in bytes) and number of items.
     A collection a MongoDB concept that is analagous to a table in a RDBMS.
     """
-    if t not in config["api.node_collections"] + config["api.edge_collections"]:
+    if t not in NODE_COLLECTIONS + EDGE_COLLECTIONS:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
 
     result = MongoInstance.DB().command("collstats", t)
@@ -292,7 +292,7 @@ def list_all_collection_items(t: str, offset: int = None, limit: int = None, x_a
     Items are returned as JSON, and have all of their attributes (and corresponding values).
     Note that this route may take a while to respond, depending on the size of the collection.
     """
-    if t not in config["api.node_collections"] + config["api.edge_collections"]:
+    if t not in NODE_COLLECTIONS + EDGE_COLLECTIONS:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
 
     if limit is None:
@@ -327,7 +327,7 @@ def get_by_id(t: str, q: list[str] = DEFAULT_QUERY, x_api_key: str = _API_KEY_HE
     if not q:
         return []
 
-    if t not in config["api.node_collections"]:
+    if t not in NODE_COLLECTIONS:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
 
     result = MongoInstance.DB()[t].find({"domainIds": {"$in": q}})
@@ -356,7 +356,7 @@ def id_map(t: str, q: list[str] = DEFAULT_QUERY, x_api_key: str = _API_KEY_HEADE
     if not q:
         return {}
 
-    if t not in config["api.node_collections"]:
+    if t not in NODE_COLLECTIONS:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
     result = {item: get_primary_id(item, t) for item in q}
     return result

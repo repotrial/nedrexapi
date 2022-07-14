@@ -8,7 +8,8 @@ from py2neo import Graph  # type: ignore
 
 from nedrexapi.config import config as _config
 
-_NEO4J_DRIVER = Graph(f"bolt://localhost:{_config['db.dev.neo4j_bolt_port']}")
+_NEO4J_PORT = _config[f'db.{_config["api.mode"]}.neo4j_bolt_port']
+_NEO4J_DRIVER = Graph(f"bolt://localhost:{_NEO4J_PORT}")
 
 router = _APIRouter()
 

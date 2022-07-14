@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -6,7 +8,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from nedrexapi.config import config, parse_config
 from nedrexapi.db import MongoInstance, create_directories
 
-parse_config(".config.toml")
+parse_config(os.environ["NEDREX_CONFIG"])
 MongoInstance.connect(config["api.mode"])
 create_directories()
 

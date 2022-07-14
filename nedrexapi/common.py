@@ -14,6 +14,7 @@ from redis import Redis as _Redis  # type: ignore
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+from nedrexapi.db import MongoInstance
 from nedrexapi.config import config as _config
 from nedrexapi.logger import logger
 
@@ -193,3 +194,7 @@ def check_api_key_decorator(func):
 
 
 _API_KEY_HEADER_ARG = _Header(default=None, include_in_schema=_config["api.require_api_keys"])
+
+
+NODE_COLLECTIONS = [node_coll for node_coll in _config["api.node_collections"] if node_coll in MongoInstance.DB().list_collection_names()]
+EDGE_COLLECTIONS = [edge_coll for edge_coll in _config["api.edge_collections"] if edge_coll in MongoInstance.DB().list_collection_names()]

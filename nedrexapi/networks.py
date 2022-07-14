@@ -9,7 +9,8 @@ from nedrexapi.logger import logger
 
 _NEWLINE = "\n"
 _NEWLINE_TAB = "\n\t"
-_NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{config['db.dev.neo4j_bolt_port']}")
+_NEO4J_PORT = config[f'db.{config["api.mode"]}.neo4j_bolt_port']
+_NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_NEO4J_PORT}")
 
 
 PPI_BASED_GGI_QUERY = """

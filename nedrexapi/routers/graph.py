@@ -13,6 +13,8 @@ from nedrexapi.common import (
     _GRAPH_COLL_LOCK,
     _GRAPH_DIR,
     check_api_key_decorator,
+    NODE_COLLECTIONS,
+    EDGE_COLLECTIONS,
 )
 from nedrexapi.config import config as _config
 from nedrexapi.tasks import queue_and_wait_for_job
@@ -142,11 +144,11 @@ def graph_builder(
 
     if build_request.nodes is None:
         build_request.nodes = DEFAULT_NODE_COLLECTIONS
-    check_values(build_request.nodes, _config["api.node_collections"], "nodes")
+    check_values(build_request.nodes, NODE_COLLECTIONS, "nodes")
 
     if build_request.edges is None:
         build_request.edges = DEFAULT_EDGE_COLLECTIONS
-    check_values(build_request.edges, _config["api.edge_collections"], "edges")
+    check_values(build_request.edges, EDGE_COLLECTIONS, "edges")
 
     if build_request.ppi_evidence is None:
         build_request.ppi_evidence = ["exp"]

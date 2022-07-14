@@ -4,7 +4,7 @@ from itertools import chain
 
 import networkx as nx  # type: ignore
 
-from nedrexapi.common import _GRAPH_COLL, _GRAPH_COLL_LOCK, _GRAPH_DIR
+from nedrexapi.common import _GRAPH_COLL, _GRAPH_COLL_LOCK, _GRAPH_DIR, NODE_COLLECTIONS
 from nedrexapi.config import config
 from nedrexapi.db import MongoInstance
 from nedrexapi.logger import logger
@@ -176,7 +176,7 @@ def graph_constructor(uid):
     updates = {}
     node_ids = set(g.nodes())
 
-    for node in config["api.node_collections"]:
+    for node in NODE_COLLECTIONS:
         cursor = MongoInstance.DB()[node].find()
         for doc in cursor:
             eid = doc["primaryDomainId"]
