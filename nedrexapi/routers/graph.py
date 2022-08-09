@@ -12,11 +12,10 @@ from nedrexapi.common import (
     _GRAPH_COLL,
     _GRAPH_COLL_LOCK,
     _GRAPH_DIR,
-    check_api_key_decorator,
-    NODE_COLLECTIONS,
     EDGE_COLLECTIONS,
+    NODE_COLLECTIONS,
+    check_api_key_decorator,
 )
-from nedrexapi.config import config as _config
 from nedrexapi.tasks import queue_and_wait_for_job
 
 router = _APIRouter()

@@ -15,6 +15,7 @@ create_directories()
 from nedrexapi.routers import admin as _admin
 from nedrexapi.routers import bicon as _bicon
 from nedrexapi.routers import closeness as _closeness
+from nedrexapi.routers import comorbiditome as _comorbiditome
 from nedrexapi.routers import diamond as _diamond
 from nedrexapi.routers import disorder as _disorder
 from nedrexapi.routers import domino as _domino
@@ -77,3 +78,4 @@ app.include_router(_validation.router, prefix="/validation", tags=["Validation"]
 app.include_router(_admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(_variant.router, prefix="/variants", tags=["Variants"])
 app.include_router(_neo4j.router, prefix="/neo4j", tags=["Neo4j"])
+app.include_router(_comorbiditome.router, prefix="/comorbiditome", tags=["Comorbiditome"])

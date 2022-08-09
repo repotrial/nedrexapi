@@ -9,7 +9,12 @@ from fastapi import HTTPException as _HTTPException
 from fastapi import Query as _Query
 from fastapi import Response as _Response
 
-from nedrexapi.common import _API_KEY_HEADER_ARG, check_api_key_decorator, NODE_COLLECTIONS, EDGE_COLLECTIONS
+from nedrexapi.common import (
+    _API_KEY_HEADER_ARG,
+    EDGE_COLLECTIONS,
+    NODE_COLLECTIONS,
+    check_api_key_decorator,
+)
 from nedrexapi.config import config
 from nedrexapi.db import MongoInstance
 
