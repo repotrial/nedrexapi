@@ -78,4 +78,4 @@ app.include_router(_validation.router, prefix="/validation", tags=["Validation"]
 app.include_router(_admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(_variant.router, prefix="/variants", tags=["Variants"])
 app.include_router(_neo4j.router, prefix="/neo4j", tags=["Neo4j"])
-app.include_router(_comorbiditome.router, prefix="/comorbiditome", tags=["Comorbiditome"])
+app.include_router(_comorbiditome.router, prefix="/comorbiditome", tags=["Comorbiditome & ICD10 Mapping"])

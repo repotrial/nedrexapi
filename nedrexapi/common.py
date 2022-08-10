@@ -10,6 +10,7 @@ from fastapi import HTTPException as _HTTPException
 from pottery import RedisDict as _RedisDict
 from pottery import Redlock as _Redlock
 from pymongo import MongoClient as _MongoClient  # type: ignore
+from pymongo.collection import Collection as _Collection  # type: ignore
 from redis import Redis as _Redis  # type: ignore
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -41,7 +42,7 @@ _VALIDATION_COLL_LOCK = _Redlock(key="validation_collection_lock", masters={_RED
 
 
 # Collections
-def get_api_collection(coll_name):
+def get_api_collection(coll_name) -> _Collection:
     return _MONGO_DB[coll_name]
 
 

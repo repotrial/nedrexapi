@@ -64,7 +64,7 @@ def api_key_verify(
     x_api_key: str = _Header(
         default=None,
     )
-):
+) -> bool:
     if x_api_key is None:
         raise _HTTPException(status_code=400, detail="No API key provided")
 
@@ -76,7 +76,7 @@ def api_key_verify(
 
 
 @router.post("/api_key/generate", include_in_schema=False)
-def api_key_generate(kgr: APIKeyGenRequest = DEFAULT_APIKG):
+def api_key_generate(kgr: APIKeyGenRequest = DEFAULT_APIKG) -> str:
     if getattr(kgr, "accept_eula", False) is not True:
         raise _HTTPException(status_code=422, detail="You must accept the EULA to generate a key")
 
@@ -97,7 +97,7 @@ def api_key_revoke(
     x_api_key: str = _Header(
         default=None,
     )
-):
+) -> dict[str, str]:
     if x_api_key is None:
         raise _HTTPException(status_code=400, detail="No API key provided")
 
@@ -114,7 +114,7 @@ def api_key_revoke(
 
 
 @router.post("/resubmit/{job_type}/{uid}", include_in_schema=False)
-def resubmit_job(job_type: str, uid: str, background_tasks: _BackgroundTasks):
+def resubmit_job(job_type: str, uid: str, background_tasks: _BackgroundTasks) -> str:
     coll = get_api_collection(f"{job_type}_")
     doc = coll.find_one({"uid": uid})
 

@@ -1,3 +1,5 @@
+import re
+from collections import defaultdict
 from csv import DictReader as _DictReader
 from io import BytesIO
 from pathlib import Path as _Path
@@ -7,11 +9,13 @@ from typing import Type as _Type
 
 import networkx as _nx  # type: ignore
 from fastapi import APIRouter as _APIRouter
+from fastapi import HTTPException as _HTTPException
 from fastapi import Query as _Query
 from fastapi import Response as _Response
 
 from nedrexapi.common import _API_KEY_HEADER_ARG, check_api_key_decorator
 from nedrexapi.config import config as _config
+from nedrexapi.db import MongoInstance
 
 router = _APIRouter()
 
@@ -24,6 +28,8 @@ TYPE_MAP: _TypeMap = (
     ("p_value", float),
     ("phi_cor", float),
 )
+
+THREE_CHAR_REGEX = re.compile(r"^[A-Z]\d{2}$")
 
 
 def apply_typemap(row: dict[str, _Any], type_map: _TypeMap) -> None:
@@ -40,6 +46,54 @@ def parse_comorbiditome() -> _Generator[dict[str, _Any], None, None]:
         for row in reader:
             apply_typemap(row, TYPE_MAP)
             yield row
+
+
+@router.get("/icd10_to_mondo", summary="Map ICD10 term to MONDO")
+@check_api_key_decorator
+def map_icd10_to_mondo(icd10: list[str] = _Query(None), x_api_key: str = _API_KEY_HEADER_ARG):
+    if icd10 is None:
+        return {}
+
+    icd10_set = set(icd10)
+    disorder_coll = MongoInstance.DB()["disorder"]
+    disorder_res = defaultdict(list)
+
+    for disorder in disorder_coll.find({"icd10": {"$in": icd10}}):
+        for icd10_term in disorder["icd10"]:
+            if icd10_term in icd10_set:
+                disorder_res[icd10_term].append(disorder["primaryDomainId"])
+
+    return disorder_res
+
+
+@router.get("/mondo_to_icd10", summary="Map MONDO term to ICD10")
+@check_api_key_decorator
+def map_mondo_to_icd10(
+    mondo: list[str] = _Query(None),
+    only_3char: bool = False,
+    exclude_3char: bool = False,
+    x_api_key: str = _API_KEY_HEADER_ARG,
+):
+    if only_3char and exclude_3char:
+        raise _HTTPException(
+            400, "cannot both exclude and only return 3 character codes -" " please select one or neither"
+        )
+    if mondo is None:
+        return {}
+
+    disorder_coll = MongoInstance.DB()["disorder"]
+    disorder_res = defaultdict(list)
+
+    for disorder in disorder_coll.find({"primaryDomainId": {"$in": mondo}}):
+        pdid = disorder["primaryDomainId"]
+        if only_3char:
+            disorder_res[pdid] = [item for item in disorder["icd10"] if THREE_CHAR_REGEX.match(item)]
+        elif exclude_3char:
+            disorder_res[pdid] = [item for item in disorder["icd10"] if not THREE_CHAR_REGEX.match(item)]
+        else:
+            disorder_res[pdid] = disorder["icd10"]
+
+    return disorder_res
 
 
 @router.get(
