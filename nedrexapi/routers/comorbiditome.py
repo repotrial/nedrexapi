@@ -148,10 +148,13 @@ def induce_comorbiditome_subnetwork(
     min_phi_cor: float = _Query(None),
     max_p_value: float = _Query(None),
     min_p_value: float = _Query(None),
+    return_format: str = _Query("graphml"),
     x_api_key: str = _API_KEY_HEADER_ARG,
 ):
     if mondo is None:
         raise _HTTPException(400, "No MONDO disorders specified")
+    if return_format not in ("graphml", "tsv"):
+        raise _HTTPException(400, "return_format should be 'graphml' or 'tsv'")
 
     if max_phi_cor is None:
         max_phi_cor = float("inf")
@@ -185,11 +188,16 @@ def induce_comorbiditome_subnetwork(
         g.add_edge(node_a, node_b, **row)
 
     # write graph
-    bytes_io = BytesIO()
-    _nx.write_graphml(g, bytes_io)
-    bytes_io.seek(0)
-    text = bytes_io.read().decode(encoding="utf-8")
-    return _Response(text, media_type="text/plain")
+    if return_format == "graphml":
+        bytes_io = BytesIO()
+        _nx.write_graphml(g, bytes_io)
+        bytes_io.seek(0)
+        text = bytes_io.read().decode(encoding="utf-8")
+        return _Response(text, media_type="text/plain")
+
+    else:
+        text = "\n".join(f"{a}\t{b}" for a, b in g.edges())
+        return _Response(text, media_type="text/plain")
 
 
 def get_simple_icd10_associations(edge_type: str, nodes: list[str]) -> dict[str, list[str]]:
