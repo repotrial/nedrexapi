@@ -222,6 +222,34 @@ def get_simple_icd10_associations(edge_type: str, nodes: list[str]) -> dict[str,
     return result
 
 
+def get_drug_targets_disorder_associated_gene_products(drugs: list[str]) -> dict[str, list[str]]:
+    result: dict[str, list[str]] = {drug: list() for drug in drugs}
+
+    coll = MongoInstance.DB()["drug_has_target"]
+
+    result = {drug: [doc["targetDomainId"] for doc in coll.find({"sourceDomainId": drug})] for drug in result}
+
+    coll = MongoInstance.DB()["protein_encoded_by_gene"]
+    result = {
+        drug: [doc["targetDomainId"] for doc in coll.find({"sourceDomainId": {"$in": pros}})]
+        for drug, pros in result.items()
+    }
+
+    coll = MongoInstance.DB()["gene_associated_with_disorder"]
+    result = {
+        drug: [doc["targetDomainId"] for doc in coll.find({"sourceDomainId": {"$in": genes}})]
+        for drug, genes in result.items()
+    }
+    print(result)
+
+    for drug, disorders in result.items():
+        mondo_icd_map = map_mondo_to_icd10(list(disorders))
+        print(mondo_icd_map)
+        result[drug] = sorted(set(chain(*list(mondo_icd_map.values()))))
+
+    return result
+
+
 @router.get("/get_icd10_associations", summary="Get ICD10 associations of nodes")
 @check_api_key_decorator
 def get_icd10_associations(
@@ -243,5 +271,5 @@ def get_icd10_associations(
 
     if edge_type != "drug_targets_disorder_associated_gene_product":
         return get_simple_icd10_associations(edge_type, nodes)
-    else:
-        raise _HTTPException(404, "Not implemented yet")
+    elif edge_type == "drug_targets_disorder_associated_gene_product":
+        return get_drug_targets_disorder_associated_gene_products(nodes)
