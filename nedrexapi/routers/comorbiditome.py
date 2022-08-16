@@ -52,6 +52,13 @@ def parse_comorbiditome() -> _Generator[dict[str, _Any], None, None]:
 @router.get("/icd10_to_mondo", summary="Map ICD10 term to MONDO")
 @check_api_key_decorator
 def map_icd10_to_mondo(icd10: list[str] = _Query(None), x_api_key: str = _API_KEY_HEADER_ARG):
+    """
+    Map one or more disorders in the ICD-10 namespace to MONDO.
+
+    Please note that mapping from ICD-10 to MONDO may change the scope of
+    disorders. For example, an ICD-10 term may map onto a MONDO term that is
+    more general, more specific, or differently specific.
+    """
     if icd10 is None:
         return {}
 
@@ -75,6 +82,17 @@ def map_mondo_to_icd10(
     exclude_3char: bool = False,
     x_api_key: str = _API_KEY_HEADER_ARG,
 ):
+    """
+    Map one or more disorders in the MONDO namespace to ICD-10.
+
+    Optionally, you may choose to include only 3-character ICD-10 codes
+    (`only_3char=True`), or you may choose to include only 3-character ICD-10
+    codes (`exclude_3char=True`).
+
+    Please note that mapping from MONDO to ICD-10 may change the scope of
+    disorders. For example, a MONDO term may map onto an ICD-10 term that is
+    more general, more specific, or differently specific.
+    """
     if only_3char and exclude_3char:
         raise _HTTPException(
             400, "cannot both exclude and only return 3 character codes -" " please select one or neither"
@@ -103,12 +121,21 @@ def map_mondo_to_icd10(
 )
 @check_api_key_decorator
 def get_comorbiditome(
-    max_phi_cor: float = _Query(None),
-    min_phi_cor: float = _Query(None),
-    max_p_value: float = _Query(None),
-    min_p_value: float = _Query(None),
+    max_phi_cor: float = _Query(None, description="Filter edges with a phi correlation above the given value"),
+    min_phi_cor: float = _Query(None, description="Filter edges with a phi correlation below the given value"),
+    max_p_value: float = _Query(None, description="Filter edges with a p-value above the given p-value"),
+    min_p_value: float = _Query(None, description="Filter edges with a p-value below the given p-value"),
     x_api_key: str = _API_KEY_HEADER_ARG,
 ):
+    """
+    Obtain the whole comorbiditome, with some optional filtering.
+
+    The comorbiditome comprises of nodes, representing disorders in the ICD-10
+    namespace, connected by edges representing the frequency with which the two
+    diseases occur in the in same individual (i.e., are comorbid).
+
+    The graph is returned in GraphML format.
+    """
     # construct graph
     g = _nx.Graph()
 
@@ -143,14 +170,21 @@ def get_comorbiditome(
 @router.get("/comorbiditome_induced_subnetwork", summary="Get induced subnetwork of comorbiditome")
 @check_api_key_decorator
 def induce_comorbiditome_subnetwork(
-    mondo: list[str] = _Query(None),
-    max_phi_cor: float = _Query(None),
-    min_phi_cor: float = _Query(None),
-    max_p_value: float = _Query(None),
-    min_p_value: float = _Query(None),
-    return_format: str = _Query("graphml"),
+    mondo: list[str] = _Query(None, description="MONDO IDs to map to ICD-10"),
+    max_phi_cor: float = _Query(None, description="Filter edges with a phi correlation above the given value"),
+    min_phi_cor: float = _Query(None, description="Filter edges with a phi correlation below the given value"),
+    max_p_value: float = _Query(None, description="Filter edges with a p-value above the given p-value"),
+    min_p_value: float = _Query(None, description="Filter edges with a p-value below the given p-value"),
+    return_format: str = _Query("graphml", description="Return format, may be `graphml` or `tsv`"),
     x_api_key: str = _API_KEY_HEADER_ARG,
 ):
+    """
+    Induce a subnetwork of the comorbiditome based on a list of disorders.
+
+    Disorder IDs should be provided in the MONDO namespace. These disorders are
+    mapped to the ICD-10 namespace, and then a subnetwork of the comorbiditome
+    is induced using the ICD-10 IDs.
+    """
     if mondo is None:
         raise _HTTPException(400, "No MONDO disorders specified")
     if return_format not in ("graphml", "tsv"):
@@ -253,8 +287,29 @@ def get_drug_targets_disorder_associated_gene_products(drugs: list[str]) -> dict
 @router.get("/get_icd10_associations", summary="Get ICD10 associations of nodes")
 @check_api_key_decorator
 def get_icd10_associations(
-    nodes: list[str] = _Query(None), edge_type: str = _Query(None), x_api_key: str = _API_KEY_HEADER_ARG
+    nodes: list[str] = _Query(None, alias="node"), edge_type: str = _Query(None), x_api_key: str = _API_KEY_HEADER_ARG
 ):
+    """Get disorder associations from NeDRex with disorders in ICD10 namespace
+
+    Parameters are an edge type and a list of nodes relevant to that edge type.
+    For example, a list of drugs can be submitted for the `drug_has_indication`
+    type to return the disorders (in ICD10 space) that the each drug is
+    indicated for.
+
+    Valid edge types are:
+
+    * `gene_associated_with_disorder` (requires `gene` nodes)
+    * `drug_has_indication` (requires `drug` nodes)
+    * `drug_has_contraindication` (requires `drug` nodes)
+    * `drug_targets_disorder_associated_gene_product` (requires `drug` nodes)
+
+    Note: The `drug_targets_disorder_associated_gene_product` edge type is an
+    inferred edge, and follows the following relationship paths:
+
+    * `(drug)-[has_target]->(protein)`
+    * `(protein)-[encoded_by]->(gene)`
+    * `(gene)-[associated_with]->(disorder)`
+    """
     valid_edge_types = {
         "gene_associated_with_disorder",
         "drug_has_indication",
