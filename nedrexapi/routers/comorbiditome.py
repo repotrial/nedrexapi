@@ -299,6 +299,9 @@ def comorbiditome_status(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
 @router.get("/download_comorbiditome_build/{uid}/{format}/{fname}", summary="Download comorbiditome build")
 @check_api_key_decorator
 def get_graph(uid, format, fname, x_api_key: str = _API_KEY_HEADER_ARG):
+    """
+    Valid formats are "graphml" and "tsv"
+    """
     if format not in ("graphml", "tsv"):
         raise _HTTPException(status_code=422, detail="Format given is invalid (should be tsv or graphml)")
 
