@@ -28,6 +28,7 @@ _STATUS = _RedisDict(redis=_REDIS, key="static-file-status")
 # Locks
 _BICON_COLL_LOCK = _Redlock(key="bicon_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
 _CLOSENESS_COLL_LOCK = _Redlock(key="closeness_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
+_COMORBIDITOME_COLL_LOCK = _Redlock(key="comorbiditome_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
 _DIAMOND_COLL_LOCK = _Redlock(key="diamond_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
 _DOMINO_COLL_LOCK = _Redlock(key="domino_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
 _GRAPH_COLL_LOCK = _Redlock(key="graph_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
@@ -49,6 +50,7 @@ def get_api_collection(coll_name) -> _Collection:
 _API_KEY_COLLECTION = get_api_collection("api_keys_")
 _BICON_COLL = get_api_collection("bicon_")
 _CLOSENESS_COLL = get_api_collection("closeness_")
+_COMORBIDITOME_COLL = get_api_collection("comorbiditome_")
 _DIAMOND_COLL = get_api_collection("diamond_")
 _DOMINO_COLL = get_api_collection("domino_")
 _GRAPH_COLL = get_api_collection("graphs_")
@@ -65,6 +67,7 @@ _ROBUST_DIR = Path(_config["api.directories.data"]) / "robust_"
 _BICON_DIR = Path(_config["api.directories.data"]) / "bicon_"
 _GRAPH_DIR = Path(_config["api.directories.data"]) / "graphs_"
 _CLOSENESS_DIR = Path(_config["api.directories.data"]) / "closeness_"
+_COMORBIDITOME_DIR = Path(_config["api.directories.data"]) / "comorbiditome_"
 _TRUSTRANK_DIR = Path(_config["api.directories.data"]) / "trustrank_"
 _STATIC_DIR = Path(_config["api.directories.static"])
 
@@ -78,6 +81,7 @@ for directory in [
     _CLOSENESS_DIR,
     _TRUSTRANK_DIR,
     _STATIC_DIR,
+    _COMORBIDITOME_DIR,
 ]:
     directory.mkdir(exist_ok=True, parents=True)
 

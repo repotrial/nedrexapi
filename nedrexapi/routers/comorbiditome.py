@@ -6,19 +6,56 @@ from itertools import chain
 from pathlib import Path as _Path
 from typing import Any as _Any
 from typing import Generator as _Generator
+from typing import Optional as _Optional
 from typing import Type as _Type
+from typing import Union as _Union
+from uuid import uuid4
 
 import networkx as _nx  # type: ignore
 from fastapi import APIRouter as _APIRouter
+from fastapi import BackgroundTasks as _BackgroundTasks
 from fastapi import HTTPException as _HTTPException
 from fastapi import Query as _Query
 from fastapi import Response as _Response
+from pydantic import BaseModel, Field
 
-from nedrexapi.common import _API_KEY_HEADER_ARG, check_api_key_decorator
+from nedrexapi.common import (
+    _API_KEY_HEADER_ARG,
+    _COMORBIDITOME_COLL,
+    _COMORBIDITOME_COLL_LOCK,
+    _COMORBIDITOME_DIR,
+    check_api_key_decorator,
+)
 from nedrexapi.config import config as _config
 from nedrexapi.db import MongoInstance
+from nedrexapi.tasks import queue_and_wait_for_job
 
 router = _APIRouter()
+
+
+class ComorbiditomeRequest(BaseModel):
+    max_phi_cor: _Optional[float] = Field(
+        None, title="Maximum phi correlation value", description="Default: `None` (no maximum)"
+    )
+    min_phi_cor: _Optional[float] = Field(
+        None, title="Minimum phi correlation value", description="Default: `None` (no minimum)"
+    )
+    max_p_value: _Optional[float] = Field(None, title="Maximum p-value", description="Default: `None` (no maximum)")
+    min_p_value: _Optional[float] = Field(None, title="Minimum p-value", description="Default: `None` (no minimum)")
+    mondo: _Optional[list[str]] = Field(
+        None,
+        title="MONDO disorder IDs",
+        description=(
+            "MONDO disorders on which to induce the comorbiditome. " "Default: `None` does not induce a subnetwork."
+        ),
+    )
+
+    class Config:
+        extra = "forbid"
+
+
+_DEFAULT_COMORBIDITOME_REQUEST = ComorbiditomeRequest()
+
 
 _TypeMap = tuple[tuple[str, _Type], ...]
 
@@ -115,125 +152,6 @@ def map_mondo_to_icd10(
     return disorder_res
 
 
-@router.get(
-    "/get_comorbiditome",
-    summary="Get comorbiditome",
-)
-@check_api_key_decorator
-def get_comorbiditome(
-    max_phi_cor: float = _Query(None, description="Filter edges with a phi correlation above the given value"),
-    min_phi_cor: float = _Query(None, description="Filter edges with a phi correlation below the given value"),
-    max_p_value: float = _Query(None, description="Filter edges with a p-value above the given p-value"),
-    min_p_value: float = _Query(None, description="Filter edges with a p-value below the given p-value"),
-    x_api_key: str = _API_KEY_HEADER_ARG,
-):
-    """
-    Obtain the whole comorbiditome, with some optional filtering.
-
-    The comorbiditome comprises of nodes, representing disorders in the ICD-10
-    namespace, connected by edges representing the frequency with which the two
-    diseases occur in the in same individual (i.e., are comorbid).
-
-    The graph is returned in GraphML format.
-    """
-    # construct graph
-    g = _nx.Graph()
-
-    if max_phi_cor is None:
-        max_phi_cor = float("inf")
-    if min_phi_cor is None:
-        min_phi_cor = -float("inf")
-    if max_p_value is None:
-        max_p_value = float("inf")
-    if min_p_value is None:
-        min_p_value = -float("inf")
-
-    for row in parse_comorbiditome():
-        if not min_phi_cor <= row["phi_cor"] <= max_phi_cor:
-            continue
-        if not min_p_value <= row["p_value"] <= max_p_value:
-            continue
-
-        node_a = row["disease1"]
-        node_b = row["disease2"]
-
-        g.add_edge(node_a, node_b, **row)
-
-    # write graph
-    bytes_io = BytesIO()
-    _nx.write_graphml(g, bytes_io)
-    bytes_io.seek(0)
-    text = bytes_io.read().decode(encoding="utf-8")
-    return _Response(text, media_type="text/plain")
-
-
-@router.get("/comorbiditome_induced_subnetwork", summary="Get induced subnetwork of comorbiditome")
-@check_api_key_decorator
-def induce_comorbiditome_subnetwork(
-    mondo: list[str] = _Query(None, description="MONDO IDs to map to ICD-10"),
-    max_phi_cor: float = _Query(None, description="Filter edges with a phi correlation above the given value"),
-    min_phi_cor: float = _Query(None, description="Filter edges with a phi correlation below the given value"),
-    max_p_value: float = _Query(None, description="Filter edges with a p-value above the given p-value"),
-    min_p_value: float = _Query(None, description="Filter edges with a p-value below the given p-value"),
-    return_format: str = _Query("graphml", description="Return format, may be `graphml` or `tsv`"),
-    x_api_key: str = _API_KEY_HEADER_ARG,
-):
-    """
-    Induce a subnetwork of the comorbiditome based on a list of disorders.
-
-    Disorder IDs should be provided in the MONDO namespace. These disorders are
-    mapped to the ICD-10 namespace, and then a subnetwork of the comorbiditome
-    is induced using the ICD-10 IDs.
-    """
-    if mondo is None:
-        raise _HTTPException(400, "No MONDO disorders specified")
-    if return_format not in ("graphml", "tsv"):
-        raise _HTTPException(400, "return_format should be 'graphml' or 'tsv'")
-
-    if max_phi_cor is None:
-        max_phi_cor = float("inf")
-    if min_phi_cor is None:
-        min_phi_cor = -float("inf")
-    if max_p_value is None:
-        max_p_value = float("inf")
-    if min_p_value is None:
-        min_p_value = -float("inf")
-
-    # map mondo disorders to ICD10
-    mondo_to_icd10_map = map_mondo_to_icd10(mondo, x_api_key=x_api_key)
-    icd10_disorders = set()
-    for mapping in mondo_to_icd10_map.values():
-        for icd10_disorder in mapping:
-            icd10_disorders.add(icd10_disorder)
-
-    g = _nx.Graph()
-
-    for row in parse_comorbiditome():
-        if not min_phi_cor <= row["phi_cor"] <= max_phi_cor:
-            continue
-        if not min_p_value <= row["p_value"] <= max_p_value:
-            continue
-        if not (row["disease1"] in icd10_disorders and row["disease2"] in icd10_disorders):
-            continue
-
-        node_a = row["disease1"]
-        node_b = row["disease2"]
-
-        g.add_edge(node_a, node_b, **row)
-
-    # write graph
-    if return_format == "graphml":
-        bytes_io = BytesIO()
-        _nx.write_graphml(g, bytes_io)
-        bytes_io.seek(0)
-        text = bytes_io.read().decode(encoding="utf-8")
-        return _Response(text, media_type="text/plain")
-
-    else:
-        text = "\n".join(f"{a}\t{b}" for a, b in g.edges())
-        return _Response(text, media_type="text/plain")
-
-
 def get_simple_icd10_associations(edge_type: str, nodes: list[str]) -> dict[str, list[str]]:
     # get the edges associated with the nodes
     coll = MongoInstance.DB()[edge_type]
@@ -274,11 +192,9 @@ def get_drug_targets_disorder_associated_gene_products(drugs: list[str]) -> dict
         drug: [doc["targetDomainId"] for doc in coll.find({"sourceDomainId": {"$in": genes}})]
         for drug, genes in result.items()
     }
-    print(result)
 
     for drug, disorders in result.items():
         mondo_icd_map = map_mondo_to_icd10(list(disorders))
-        print(mondo_icd_map)
         result[drug] = sorted(set(chain(*list(mondo_icd_map.values()))))
 
     return result
@@ -328,3 +244,80 @@ def get_icd10_associations(
         return get_simple_icd10_associations(edge_type, nodes)
     elif edge_type == "drug_targets_disorder_associated_gene_product":
         return get_drug_targets_disorder_associated_gene_products(nodes)
+
+
+@router.post(
+    "/submit_comorbiditome_build",
+    summary="Submit comorbiditome build",
+)
+@check_api_key_decorator
+def submit_comorbiditome_build(
+    background_tasks: _BackgroundTasks,
+    cr: ComorbiditomeRequest = _DEFAULT_COMORBIDITOME_REQUEST,
+    x_api_key: str = _API_KEY_HEADER_ARG,
+):
+    """
+    Submit a build request for the comorbiditome.
+
+    Optionally, induce a subnetwork of the comorbiditome based on a list of
+    disorders.
+    """
+    query: dict[str, _Union[float, list[str], None, str]] = {
+        "mondo": cr.mondo,
+        "max_phi_cor": cr.max_phi_cor,
+        "min_phi_cor": cr.min_phi_cor,
+        "max_p_value": cr.max_p_value,
+        "min_p_value": cr.min_p_value,
+    }
+
+    with _COMORBIDITOME_COLL_LOCK:
+        result = _COMORBIDITOME_COLL.find_one(query)
+
+        if result:
+            uid = result["uid"]
+        else:
+            uid = f"{uuid4()}"
+            query["uid"] = uid
+            query["status"] = "submitted"
+            _COMORBIDITOME_COLL.insert_one(query)
+            background_tasks.add_task(queue_and_wait_for_job, "comorbiditome", uid)
+
+    return uid
+
+
+@router.get("/comorbiditome_build_status", summary="Comorbiditome build status")
+@check_api_key_decorator
+def comorbiditome_status(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
+    query = {"uid": uid}
+    result = _COMORBIDITOME_COLL.find_one(query)
+    if not result:
+        raise _HTTPException(status_code=404, detail=f"No comorbiditome build job with uid {uid!r}")
+    result.pop("_id")
+    return result
+
+
+@router.get("/download_comorbiditome_build/{uid}/{format}/{fname}", summary="Download comorbiditome build")
+@check_api_key_decorator
+def get_graph(uid, format, fname, x_api_key: str = _API_KEY_HEADER_ARG):
+    if format not in ("graphml", "tsv"):
+        raise _HTTPException(status_code=422, detail="Format given is invalid (should be tsv or graphml)")
+
+    result = _COMORBIDITOME_COLL.find_one({"uid": uid})
+    if not result:
+        raise _HTTPException(status_code=404, detail=f"No comorbiditome build job with the UID {uid!r}")
+    if not result["status"] == "completed":
+        raise _HTTPException(status_code=400, detail=f"Comorbiditome build job with UID {uid!r} is not completed")
+
+    graph_path = _COMORBIDITOME_DIR / f"{uid}.graphml"
+    g = _nx.read_graphml(graph_path)
+
+    if format == "graphml":
+        bytes_io = BytesIO()
+        _nx.write_graphml(g, bytes_io)
+        bytes_io.seek(0)
+        text = bytes_io.read().decode(encoding="utf-8")
+        return _Response(text, media_type="text/plain")
+
+    elif format == "tsv":
+        text = "\n".join(f"{a}\t{b}" for a, b in g.edges())
+        return _Response(text, media_type="text/plain")

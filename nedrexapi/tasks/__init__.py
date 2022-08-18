@@ -13,6 +13,7 @@ from rq import Queue  # type: ignore
 
 from nedrexapi.tasks.bicon import run_bicon_wrapper
 from nedrexapi.tasks.closeness import run_closeness_wrapper
+from nedrexapi.tasks.comorbiditome import run_comorbiditome_build_wrapper
 from nedrexapi.tasks.diamond import run_diamond_wrapper
 from nedrexapi.tasks.domino import run_domino_wrapper
 from nedrexapi.tasks.graph import graph_constructor_wrapper
@@ -62,6 +63,8 @@ def queue_and_wait_for_job(type, uid):
         job = QUEUE.enqueue(module_validation_wrapper, uid, job_timeout=TIMEOUT)
     elif type == "validation-joint":
         job = QUEUE.enqueue(joint_validation_wrapper, uid, job_timeout=TIMEOUT)
+    elif type == "comorbiditome":
+        job = QUEUE.enqueue(run_comorbiditome_build_wrapper, uid, job_timeout=TIMEOUT)
 
     while True:
         status = job.get_status(refresh=True)
