@@ -1,21 +1,15 @@
 import datetime
 import secrets
 
-from fastapi import APIRouter as _APIRouter, BackgroundTasks as _BackgroundTasks, HTTPException as _HTTPException
-from pydantic import BaseModel as _BaseModel, Field as _Field
+from fastapi import APIRouter as _APIRouter
+from fastapi import BackgroundTasks as _BackgroundTasks
+from fastapi import Header as _Header
+from fastapi import HTTPException as _HTTPException
+from pydantic import BaseModel as _BaseModel
+from pydantic import Field as _Field
 
-from nedrexapi.common import get_api_collection
-from nedrexapi.routers.bicon import run_bicon_wrapper as _run_bicon_wrapper
-from nedrexapi.routers.closeness import run_closeness_wrapper as _run_closeness_wrapper
-from nedrexapi.routers.diamond import run_diamond_wrapper as _run_diamond_wrapper
-from nedrexapi.routers.graph import graph_constructor_wrapper as _graph_constructor_wrapper
-from nedrexapi.routers.must import run_must_wrapper as _run_must_wrapper
-from nedrexapi.routers.trustrank import run_trustrank_wrapper as _run_trustrank_wrapper
-from nedrexapi.routers.validation import (
-    drug_validation_wrapper as _drug_validation_wrapper,
-    module_validation_wrapper as _module_validation_wrapper,
-    joint_validation_wrapper as _joint_validation_wrapper,
-)
+from nedrexapi.common import check_api_key, get_api_collection
+from nedrexapi.tasks import queue_and_wait_for_job
 
 router = _APIRouter()
 
@@ -59,34 +53,32 @@ class APIKeyGenRequest(_BaseModel):
     accept_eula: bool = _Field(None, title="Accept EULA", description="Set to True if you accept the EULA.")
 
 
-class APIKeyRequest(_BaseModel):
-    api_key: str = _Field(None, title="API key", description="API key")
-
-
 DEFAULT_APIKG = APIKeyGenRequest()
-DEFAULT_APIKR = APIKeyRequest()
 
 
 API_KEY_COLLECTION = get_api_collection("api_keys_")
 
 
 @router.get("/api_key/verify", include_in_schema=False)
-def api_key_verify(akr: APIKeyRequest = DEFAULT_APIKR):
-    if not getattr(akr, "api_key", None):
-        raise _HTTPException(status_code=404, detail="No API key provided")
+def api_key_verify(
+    x_api_key: str = _Header(
+        default=None,
+    )
+) -> bool:
+    if x_api_key is None:
+        raise _HTTPException(status_code=400, detail="No API key provided")
 
-    entry = API_KEY_COLLECTION.find_one({"key": akr.api_key})
-    if not entry:
+    try:
+        check_api_key(x_api_key)
+        return True
+    except _HTTPException:
         return False
-    elif entry["expiry"] < datetime.datetime.utcnow():
-        return False
-    return True
 
 
 @router.post("/api_key/generate", include_in_schema=False)
-def api_key_generate(kgr: APIKeyGenRequest = DEFAULT_APIKG):
+def api_key_generate(kgr: APIKeyGenRequest = DEFAULT_APIKG) -> str:
     if getattr(kgr, "accept_eula", False) is not True:
-        raise _HTTPException(status_code=404, detail="You must accept the EULA to generate a key")
+        raise _HTTPException(status_code=422, detail="You must accept the EULA to generate a key")
 
     new_key = secrets.token_urlsafe(32)
     while API_KEY_COLLECTION.find_one({"key": new_key}):
@@ -101,11 +93,15 @@ def api_key_generate(kgr: APIKeyGenRequest = DEFAULT_APIKG):
 
 
 @router.post("/api_key/revoke", include_in_schema=False)
-def api_key_revoke(akr: APIKeyRequest = DEFAULT_APIKR):
-    if not getattr(akr, "api_key", None):
-        raise _HTTPException(status_code=404, detail="No API key provided")
+def api_key_revoke(
+    x_api_key: str = _Header(
+        default=None,
+    )
+) -> dict[str, str]:
+    if x_api_key is None:
+        raise _HTTPException(status_code=400, detail="No API key provided")
 
-    entry = API_KEY_COLLECTION.find_one({"key": akr.api_key})
+    entry = API_KEY_COLLECTION.find_one({"key": x_api_key})
 
     if not entry:
         return {"detail": "API key is not valid"}
@@ -113,12 +109,12 @@ def api_key_revoke(akr: APIKeyRequest = DEFAULT_APIKR):
     if entry["revokable"] is False:
         return {"detail": "API key given is not revokable via this route"}
 
-    API_KEY_COLLECTION.delete_one({"key": akr.api_key})
+    API_KEY_COLLECTION.delete_one({"key": x_api_key})
     return {"detail": "Success"}
 
 
 @router.post("/resubmit/{job_type}/{uid}", include_in_schema=False)
-def resubmit_job(job_type: str, uid: str, background_tasks: _BackgroundTasks):
+def resubmit_job(job_type: str, uid: str, background_tasks: _BackgroundTasks) -> str:
     coll = get_api_collection(f"{job_type}_")
     doc = coll.find_one({"uid": uid})
 
@@ -127,23 +123,23 @@ def resubmit_job(job_type: str, uid: str, background_tasks: _BackgroundTasks):
     coll.replace_one({"uid": uid}, doc)
 
     if job_type == "bicon":
-        background_tasks.add_task(_run_bicon_wrapper, uid)
+        background_tasks.add_task(queue_and_wait_for_job, "bicon", uid)
     elif job_type == "closeness":
-        background_tasks.add_task(_run_closeness_wrapper, uid)
+        background_tasks.add_task(queue_and_wait_for_job, "closeness", uid)
     elif job_type == "diamond":
-        background_tasks.add_task(_run_diamond_wrapper, uid)
+        background_tasks.add_task(queue_and_wait_for_job, "diamond", uid)
     elif job_type == "graphs":
-        background_tasks.add_task(_graph_constructor_wrapper, uid)
+        background_tasks.add_task(queue_and_wait_for_job, "graph", uid)
     elif job_type == "trustrank":
-        background_tasks.add_task(_run_trustrank_wrapper, uid)
+        background_tasks.add_task(queue_and_wait_for_job, "trustrank", uid)
     elif job_type == "must":
-        background_tasks.add_task(_run_must_wrapper, uid)
+        background_tasks.add_task(queue_and_wait_for_job, "must", uid)
     elif job_type == "validation":
         if doc["validation_type"] == "module":
-            background_tasks.add_task(_module_validation_wrapper, uid)
+            background_tasks.add_task(queue_and_wait_for_job, "validation-module", uid)
         elif doc["validation_type"] == "drug":
-            background_tasks.add_task(_drug_validation_wrapper, uid)
+            background_tasks.add_task(queue_and_wait_for_job, "validation-drug", uid)
         elif doc["validation_type"] == "joint":
-            background_tasks.add_task(_joint_validation_wrapper, uid)
+            background_tasks.add_task(queue_and_wait_for_job, "validation-joint", uid)
 
     return uid

@@ -1,11 +1,13 @@
 from collections import defaultdict as _defaultdict
 
 import networkx as _nx  # type: ignore
-from cachetools import LRUCache as _LRUCache, cached as _cached  # type: ignore
-from fastapi import APIRouter as _APIRouter, Query as _Query
+from cachetools import LRUCache as _LRUCache  # type: ignore
+from cachetools import cached as _cached
+from fastapi import APIRouter as _APIRouter
+from fastapi import Query as _Query
 
+from nedrexapi.common import _API_KEY_HEADER_ARG, check_api_key_decorator
 from nedrexapi.db import MongoInstance
-
 
 DEFAULT_QUERY = _Query(None)
 
@@ -23,7 +25,8 @@ def construct_disorder_relationship_graph():
 
 
 @router.get("/get_by_icd10", summary="Get disorder(s) by ICD-10")
-def get_disorder_by_icd10(q: list[str] = DEFAULT_QUERY):
+@check_api_key_decorator
+def get_disorder_by_icd10(q: list[str] = DEFAULT_QUERY, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns an array of disorders with the given ICD-10 codes.
     Both 3 character and 4 character codes can be used (including in the same query).
@@ -77,7 +80,8 @@ def get_disorder_by_icd10(q: list[str] = DEFAULT_QUERY):
     },
     summary="Get disorder descendants",
 )
-def get_disorder_descendants(q: list[str] = DEFAULT_QUERY):
+@check_api_key_decorator
+def get_disorder_descendants(q: list[str] = DEFAULT_QUERY, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns the descendant disorder terms for the given disorder term(s).
     Results are returned as a hash map of `{child: descendants}`.
@@ -118,7 +122,8 @@ def get_disorder_descendants(q: list[str] = DEFAULT_QUERY):
     },
     summary="Get disorder ancestors",
 )
-def get_disorder_ancestors(q: list[str] = DEFAULT_QUERY):
+@check_api_key_decorator
+def get_disorder_ancestors(q: list[str] = DEFAULT_QUERY, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns the ancestor disorder terms for the given disorder term(s).
     Results are returned as a hash map of `{child: ancestors}`.
@@ -148,7 +153,8 @@ def get_disorder_ancestors(q: list[str] = DEFAULT_QUERY):
     responses={200: {"content": {"application/json": {"example": {"mondo.0007523": ["mondo.0020066"]}}}}},
     summary="Get disorder parents",
 )
-def get_disorder_parents(q: list[str] = DEFAULT_QUERY):
+@check_api_key_decorator
+def get_disorder_parents(q: list[str] = DEFAULT_QUERY, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns the parent disorder terms for the given disorder term(s).
     Results are returned as a hash map of `{child: parents}`.
@@ -201,7 +207,8 @@ def get_disorder_parents(q: list[str] = DEFAULT_QUERY):
     },
     summary="Get disorder children",
 )
-def get_disorder_children(q: list[str] = DEFAULT_QUERY):
+@check_api_key_decorator
+def get_disorder_children(q: list[str] = DEFAULT_QUERY, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns the children disorder terms for the given disorder term(s).
     Results are returned as a hash map of `{parent: children}`.

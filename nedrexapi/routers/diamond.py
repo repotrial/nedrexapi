@@ -1,63 +1,23 @@
-import shutil as _shutil
-import subprocess as _subprocess
-import tempfile as _tempfile
-import traceback as _traceback
-from csv import DictReader as _DictReader, reader as _reader
-from functools import lru_cache as _lru_cache
-from itertools import combinations as _combinations, product as _product
-from typing import Any as _Any
-from pathlib import Path as _Path
 from uuid import uuid4 as _uuid4
 
-from neo4j import GraphDatabase as _GraphDatabase  # type: ignore
-from fastapi import (
-    APIRouter as _APIRouter,
-    BackgroundTasks as _BackgroundTasks,
-    HTTPException as _HTTPException,
-    Response as _Response,
+from fastapi import APIRouter as _APIRouter
+from fastapi import BackgroundTasks as _BackgroundTasks
+from fastapi import HTTPException as _HTTPException
+from fastapi import Response as _Response
+from pydantic import BaseModel as _BaseModel
+from pydantic import Field as _Field
+
+from nedrexapi.common import (
+    _API_KEY_HEADER_ARG,
+    _DIAMOND_COLL,
+    _DIAMOND_COLL_LOCK,
+    _DIAMOND_DIR,
+    check_api_key_decorator,
 )
-from pottery import Redlock as _Redlock
-from pydantic import BaseModel as _BaseModel, Field as _Field
-
-from nedrexapi.config import config as _config
-from nedrexapi.common import get_api_collection as _get_api_collection, _REDIS
-from nedrexapi.logger import logger as _logger
-
-_NEO4J_DRIVER = _GraphDatabase.driver(uri=f"bolt://localhost:{_config['db.neo4j_bolt_port']}")
-
-_DIAMOND_COLL = _get_api_collection("diamond_")
-_DIAMOND_DIR = _Path(_config["api.directories.data"]) / "diamond_"
-_DIAMOND_DIR.mkdir(parents=True, exist_ok=True)
-_DIAMOND_COLL_LOCK = _Redlock(key="diamond_collection_lock", masters={_REDIS}, auto_release_time=int(1e10))
+from nedrexapi.networks import normalise_seeds_and_determine_type
+from nedrexapi.tasks import queue_and_wait_for_job
 
 router = _APIRouter()
-
-PPI_BASED_GGI_QUERY = """
-MATCH (pa)-[ppi:ProteinInteractsWithProtein]-(pb)
-WHERE "exp" in ppi.evidenceTypes
-MATCH (pa)-[:ProteinEncodedByGene]->(x)
-MATCH (pb)-[:ProteinEncodedByGene]->(y)
-RETURN DISTINCT x.primaryDomainId, y.primaryDomainId
-"""
-
-PPI_QUERY = """
-MATCH (x)-[ppi:ProteinInteractsWithProtein]-(y)
-WHERE "exp" in ppi.evidenceTypes
-RETURN DISTINCT x.primaryDomainId, y.primaryDomainId
-"""
-
-SHARED_DISORDER_BASED_GGI_QUERY = """
-MATCH (x:Gene)-[:GeneAssociatedWithDisorder]->(d:Disorder)
-MATCH (y:Gene)-[:GeneAssociatedWithDisorder]->(d:Disorder)
-WHERE x <> y
-RETURN DISTINCT x.primaryDomainId, y.primaryDomainId
-"""
-
-QUERY_MAP = {
-    ("gene", "DEFAULT"): PPI_BASED_GGI_QUERY,
-    ("protein", "DEFAULT"): PPI_QUERY,
-    ("gene", "SHARED_DISORDER"): SHARED_DISORDER_BASED_GGI_QUERY,
-}
 
 
 class DiamondRequest(_BaseModel):
@@ -88,38 +48,13 @@ class DiamondRequest(_BaseModel):
 _DEFAUT_DIAMOND_REQUEST = DiamondRequest()
 
 
-@_lru_cache(maxsize=None)
-def get_network(query, prefix):
-    outfile = f"/tmp/{_uuid4()}.tsv"
-
-    with _NEO4J_DRIVER.session() as session, open(outfile, "w") as f:
-        for result in session.run(query):
-            a = result["x.primaryDomainId"].replace(prefix, "")
-            b = result["y.primaryDomainId"].replace(prefix, "")
-            f.write("{}\t{}\n".format(a, b))
-
-    return outfile
-
-
-def normalise_seeds_and_determine_type(seeds):
-    new_seeds = [seed.upper() for seed in seeds]
-
-    if all(seed.startswith("ENTREZ.") for seed in new_seeds):
-        seed_type = "gene"
-        new_seeds = [seed.replace("ENTREZ.", "") for seed in new_seeds]
-    elif all(seed.isnumeric() for seed in new_seeds):
-        seed_type = "gene"
-    elif all(seed.startswith("UNIPROT.") for seed in new_seeds):
-        seed_type = "protein"
-        new_seeds = [seed.replace("UNIPROT.", "") for seed in new_seeds]
-    else:
-        seed_type = "protein"
-
-    return new_seeds, seed_type
-
-
 @router.post("/submit", summary="DIAMOnD Submit")
-async def diamond_submit(background_tasks: _BackgroundTasks, dr: DiamondRequest = _DEFAUT_DIAMOND_REQUEST):
+@check_api_key_decorator
+def diamond_submit(
+    background_tasks: _BackgroundTasks,
+    dr: DiamondRequest = _DEFAUT_DIAMOND_REQUEST,
+    x_api_key: str = _API_KEY_HEADER_ARG,
+):
     """
     Submits a job to run DIAMOnD using a NeDRexDB-based gene-gene network.
 
@@ -142,9 +77,9 @@ async def diamond_submit(background_tasks: _BackgroundTasks, dr: DiamondRequest 
     Interactome](https://doi.org/10.1371/journal.pcbi.1004120)
     """
     if not dr.seeds:
-        raise _HTTPException(status_code=404, detail="No seeds submitted")
+        raise _HTTPException(status_code=400, detail="No seeds submitted")
     if not dr.n:
-        raise _HTTPException(status_code=404, detail="Number of results to return is not specified")
+        raise _HTTPException(status_code=400, detail="Number of results to return is not specified")
 
     new_seeds, seed_type = normalise_seeds_and_determine_type(dr.seeds)
     dr.seeds = new_seeds
@@ -152,7 +87,7 @@ async def diamond_submit(background_tasks: _BackgroundTasks, dr: DiamondRequest 
     if dr.edges is None:
         dr.edges = "all"
     if dr.edges not in {"all", "limited"}:
-        raise _HTTPException(status_code=404, detail="If specified, edges must be `limited` or `all`")
+        raise _HTTPException(status_code=422, detail="If specified, edges must be `limited` or `all`")
 
     query = {
         "seeds": sorted(dr.seeds),
@@ -173,13 +108,14 @@ async def diamond_submit(background_tasks: _BackgroundTasks, dr: DiamondRequest 
             query["uid"] = uid
             query["status"] = "submitted"
             _DIAMOND_COLL.insert_one(query)
-            background_tasks.add_task(run_diamond_wrapper, uid)
+            background_tasks.add_task(queue_and_wait_for_job, "diamond", uid)
 
     return uid
 
 
 @router.get("/status", summary="DIAMOnD Status")
-def diamond_status(uid: str):
+@check_api_key_decorator
+def diamond_status(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns the details of the DIAMOnD job with the given `uid`, including the original query parameters and the
     status of the build (`submitted`, `running`, `failed`, or `completed`).
@@ -194,125 +130,15 @@ def diamond_status(uid: str):
 
 
 @router.get("/download", summary="DIAMOnD Download")
-def diamond_download(uid: str):
+@check_api_key_decorator
+def diamond_download(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     query = {"uid": uid}
     result = _DIAMOND_COLL.find_one(query)
     if not result:
         raise _HTTPException(status_code=404, detail=f"No DIAMOnD job with UID {uid!r}")
-    if not result["status"] == "completed":
-        raise _HTTPException(status_code=404, detail=f"DIAMOnD job with UID do {uid!r} does not have completed status")
+    if result["status"] == "running":
+        raise _HTTPException(status_code=102, detail=f"DIAMOnD job with UID {uid!r} is still running")
+    if result["status"] == "failed":
+        raise _HTTPException(status_code=404, detail=f"No results for DIAMOnD job with UID {uid!r} (failed)")
 
     return _Response((_DIAMOND_DIR / (f"{uid}.txt")).open("rb").read(), media_type="text/plain")
-
-
-def run_diamond_wrapper(uid: str):
-    try:
-        run_diamond(uid)
-    except Exception as E:
-        print(_traceback.format_exc())
-        with _DIAMOND_COLL_LOCK:
-            _DIAMOND_COLL.update_one({"uid": uid}, {"$set": {"status": "failed", "error": f"{E}"}})
-
-
-def run_diamond(uid: str):
-    with _DIAMOND_COLL_LOCK:
-        details = _DIAMOND_COLL.find_one({"uid": uid})
-        if not details:
-            raise Exception(f"No DIAMOnD job with UID {uid!r}")
-        _DIAMOND_COLL.update_one({"uid": uid}, {"$set": {"status": "running"}})
-        _logger.info(f"starting DIAMOnD job {uid!r}")
-
-    tempdir = _tempfile.TemporaryDirectory()
-    tup = (details["seed_type"], details["network"])
-    query = QUERY_MAP.get(tup)
-    if not query:
-        raise Exception(
-            f"Network choice ({details['network']}) and seed type ({details['seed_type']}) are incompatible"
-        )
-
-    prefix = "uniprot." if details["seed_type"] == "protein" else "entrez."
-
-    # Write network to work directory
-    network_file = get_network(query, prefix)
-    _shutil.copy(network_file, f"{tempdir.name}/network.tsv")
-    # Write seeds to work directory
-    with open(f"{tempdir.name}/seeds.txt", "w") as f:
-        for seed in details["seeds"]:
-            f.write("{}\n".format(seed))
-
-    command = [
-        f"{_config['api.directories.scripts']}/run_diamond.py",
-        "--network_file",
-        f"{tempdir.name}/network.tsv",
-        "--seed_file",
-        f"{tempdir.name}/seeds.txt",
-        "-n",
-        f"{details['n']}",
-        "--alpha",
-        f"{details['alpha']}",
-        "-o",
-        f"{tempdir.name}/results.txt",
-    ]
-
-    res = _subprocess.call(command)
-
-    # End if the DIAMOnD didn't exit properly
-    if res != 0:
-        with _DIAMOND_COLL_LOCK:
-            _DIAMOND_COLL.update_one(
-                {"uid": uid},
-                {
-                    "$set": {
-                        "status": "failed",
-                        "error": f"DIAMOnD exited with return code {res} -- please check your inputs and contact API "
-                        "developer if issues persist.",
-                    }
-                },
-            )
-        return
-
-    # Extract results
-    results: dict[str, _Any] = {"diamond_nodes": [], "edges": []}
-    diamond_nodes = set()
-
-    with open(f"{tempdir.name}/results.txt", "r") as f:
-        result_reader = _DictReader(f, delimiter="\t")
-        for result in result_reader:
-            result = dict(result)
-            result["rank"] = result.pop("#rank")
-            results["diamond_nodes"].append(result)
-            diamond_nodes.add(result["DIAMOnD_node"])
-
-    seeds = set(details["seeds"])
-    seeds_in_network = set()
-
-    # Get edges between DIAMOnD results and seeds
-    if details["edges"] == "all":
-        module_nodes = set(diamond_nodes) | seeds
-        possible_edges = {tuple(sorted(i)) for i in _combinations(module_nodes, 2)}
-    elif details["edges"] == "limited":
-        possible_edges = {tuple(sorted(i)) for i in _product(diamond_nodes, seeds)}
-
-    with open(f"{tempdir.name}/network.tsv") as f:
-        network_reader = _reader(f, delimiter="\t")
-        for row in network_reader:
-            sorted_row = tuple(sorted(row))
-            if sorted_row in possible_edges:
-                results["edges"].append(sorted_row)
-
-            for node in sorted_row:
-                if node in seeds:
-                    seeds_in_network.add(node)
-
-    # Remove duplicates
-    results["edges"] = {tuple(i) for i in results["edges"]}
-    results["edges"] = [list(i) for i in results["edges"]]
-
-    results["seeds_in_network"] = sorted(seeds_in_network)
-    _shutil.move(f"{tempdir.name}/results.txt", _DIAMOND_DIR / f"{details['uid']}.txt")
-    tempdir.cleanup()
-
-    with _DIAMOND_COLL_LOCK:
-        _DIAMOND_COLL.update_one({"uid": uid}, {"$set": {"status": "completed", "results": results}})
-
-    _logger.success(f"finished DIAMOnD job {uid!r}")

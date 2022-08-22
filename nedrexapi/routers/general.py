@@ -1,26 +1,46 @@
 from csv import DictWriter as _DictWriter
 from io import StringIO as _StringIO
+from typing import Optional
 
-from cachetools import LRUCache as _LRUCache, cached as _cached  # type: ignore
-from fastapi import APIRouter as _APIRouter, HTTPException as _HTTPException, Response as _Response, Query as _Query
-from pydantic import BaseModel as _BaseModel, Field as _Field
+from cachetools import LRUCache as _LRUCache  # type: ignore
+from cachetools import cached as _cached
+from fastapi import APIRouter as _APIRouter
+from fastapi import HTTPException as _HTTPException
+from fastapi import Query as _Query
+from fastapi import Response as _Response
 
-from nedrexapi.db import MongoInstance
+from nedrexapi.common import (
+    _API_KEY_HEADER_ARG,
+    EDGE_COLLECTIONS,
+    NODE_COLLECTIONS,
+    check_api_key_decorator,
+)
 from nedrexapi.config import config
+from nedrexapi.db import MongoInstance
 
 router = _APIRouter()
 
 
-class AttributeRequest(_BaseModel):
-    node_ids: list[str] = _Field(None, title="Primary domain IDs of nodes")
-    attributes: list[str] = _Field(None, title="Attributes requested")
-
-    class Config:
-        extra = "forbid"
-
-
-DEFAULT_ATTRIBUTE_REQUEST = AttributeRequest()
 DEFAULT_QUERY = _Query(None)
+
+
+@router.get(
+    "/pagination_max",
+    summary="Pagination limit",
+)
+@check_api_key_decorator
+def pagination_maximum(x_api_key: str = _API_KEY_HEADER_ARG):
+    """Returns the pagination maximum for the API"""
+    return config["api.pagination_max"]
+
+
+@router.get(
+    "/api_key_setting",
+    summary="API key setting",
+)
+def api_key_setting():
+    """Returns true if API keys are required (and false otherwise)"""
+    return config["api.require_api_keys"]
 
 
 @router.get(
@@ -28,8 +48,9 @@ DEFAULT_QUERY = _Query(None)
     responses={200: {"content": {"application/json": {"example": ["disorder", "drug", "gene", "pathway", "protein"]}}}},
     summary="List node collections",
 )
-def list_node_collections():
-    return config["api.node_collections"]
+@check_api_key_decorator
+def list_node_collections(x_api_key: str = _API_KEY_HEADER_ARG):
+    return sorted(NODE_COLLECTIONS)
 
 
 @router.get(
@@ -57,8 +78,9 @@ def list_node_collections():
     },
     summary="List edge collections",
 )
-def list_edge_collections():
-    return config["api.edge_collections"]
+@check_api_key_decorator
+def list_edge_collections(x_api_key: str = _API_KEY_HEADER_ARG):
+    return sorted(EDGE_COLLECTIONS)
 
 
 @router.get(
@@ -86,24 +108,43 @@ def list_edge_collections():
     summary="List collection attributes",
 )
 @_cached(cache=_LRUCache(maxsize=32))
-def list_attributes(t: str):
-    if t not in config["api.node_collections"] + config["api.edge_collections"]:
+@check_api_key_decorator
+def list_attributes(t: str, include_counts: bool = False, x_api_key: str = _API_KEY_HEADER_ARG):
+    if t not in NODE_COLLECTIONS + EDGE_COLLECTIONS:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
 
-    attributes: set[str] = set()
-    for doc in MongoInstance.DB()[t].find():
-        attributes |= set(doc.keys())
+    data = MongoInstance.DB()["_collections"].find_one({"collection": t})
+
+    if not data:
+        raise _HTTPException(
+            status_code=404,
+            detail=(
+                f"Collection attribute values are expecectedly not available for {t!r}"
+                "(please raise an issue on GitHub)"
+            ),
+        )
+
+    if include_counts:
+        counts = data["attribute_counts"]
+
+        if "_id" in counts:
+            del counts["_id"]
+
+        return {"document_count": data["document_count"], "attribute_counts": counts}
+
+    attributes = data["unique_attributes"]
     attributes.remove("_id")
     return attributes
 
 
-@router.get("/{t}/attributes/{attribute}/{format}")
-def get_attribute_values(t: str, attribute: str, format: str):
-    if t in config["api.node_collections"]:
+@router.get("/{t}/attributes/{attribute}/{format}", summary="Get attribute values")
+@check_api_key_decorator
+def get_attribute_values(t: str, attribute: str, format: str, x_api_key: str = _API_KEY_HEADER_ARG):
+    if t in NODE_COLLECTIONS:
         results = [
             {"primaryDomainId": i["primaryDomainId"], attribute: i.get(attribute)} for i in MongoInstance.DB()[t].find()
         ]
-    elif t in config["api.edge_collections"]:
+    elif t in EDGE_COLLECTIONS:
         try:
             results = [
                 {
@@ -133,20 +174,60 @@ def get_attribute_values(t: str, attribute: str, format: str):
         return _Response(content=string.getvalue(), media_type="plain/text")
 
 
-@router.get("/{t}/attributes_v2/{format}", summary="Get collection member attribute values")
-def get_node_attribute_values(t: str, format: str, ar: AttributeRequest = DEFAULT_ATTRIBUTE_REQUEST):
-    if t not in config.get("api.node_collections"):
-        raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
-    if ar.attributes is None:
-        raise _HTTPException(status_code=404, detail="No attribute(s) requested")
-    if ar.node_ids is None:
-        raise _HTTPException(status_code=404, detail="No node(s) requested")
+@router.get("/{t}/attributes/{format}", summary="Get collection member attribute values")
+@check_api_key_decorator
+def get_node_attribute_values(
+    t: str,
+    format: str,
+    attributes: list[str] = _Query(
+        None,
+        description=(
+            "Attribute(s) requested. "
+            "Multiple attributes can be specified (e.g., `attribute=domainIds&attribute=primaryDomainId)`"
+        ),
+        alias="attribute",
+    ),
+    node_ids: list[str] = _Query(
+        None,
+        description=(
+            "Node IDs to collect attribute values for. "
+            "Multiple node IDs can be specified (e.g., `node_id=<id_1>&node_id=<id_2>`)"
+        ),
+        alias="node_id",
+    ),
+    offset: Optional[int] = _Query(None, description="Offset to use"),
+    limit: Optional[int] = _Query(
+        None, description=f"Limit number of queries returned (default & maximum is {config['api.pagination_max']:,})"
+    ),
+    x_api_key: str = _API_KEY_HEADER_ARG,
+):
+    # Singular is used for arguments because this makes sense to a user.
+    # Aliasing to plural here as node_id and attribute are actually lists of 1+ strings.
 
-    query = {"primaryDomainId": {"$in": ar.node_ids}}
+    if t not in NODE_COLLECTIONS:
+        raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
+    if attributes is None:
+        # get all attributes for the type
+        attributes = list_attributes(t)
+
+    if node_ids is None:
+        query = {}
+    else:
+        query = {"primaryDomainId": {"$in": node_ids}}
+
+    if limit is None:
+        limit = config["api.pagination_max"]
+    elif limit > config["api.pagination_max"]:
+        raise _HTTPException(status_code=422, detail=f"Limit cannot be greater than {config['api.pagination_max']:,}")
+
+    kwargs = {}
+    if offset is not None:
+        kwargs["skip"] = offset
+    kwargs["limit"] = limit
 
     results = [
-        {"primaryDomainId": i["primaryDomainId"], **{attribute: i.get(attribute) for attribute in ar.attributes}}
-        for i in MongoInstance.DB()[t].find(query)
+        {"primaryDomainId": i["primaryDomainId"], **{attr: i.get(attr) for attr in attributes}}
+        for i in MongoInstance.DB()[t].find(query, **kwargs)
     ]
 
     if format == "json":
@@ -187,12 +268,13 @@ def get_node_attribute_values(t: str, format: str, ar: AttributeRequest = DEFAUL
     summary="Collection details",
 )
 @_cached(cache=_LRUCache(maxsize=32))
-def collection_details(t: str):
+@check_api_key_decorator
+def collection_details(t: str, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns a hash map of the details for the collection, `t`, including size (in bytes) and number of items.
     A collection a MongoDB concept that is analagous to a table in a RDBMS.
     """
-    if t not in config["api.node_collections"] + config["api.edge_collections"]:
+    if t not in NODE_COLLECTIONS + EDGE_COLLECTIONS:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
 
     result = MongoInstance.DB().command("collstats", t)
@@ -208,16 +290,27 @@ def collection_details(t: str):
     summary="List all collection items",
 )
 @_cached(cache=_LRUCache(maxsize=32))
-def list_all_collection_items(t: str):
+@check_api_key_decorator
+def list_all_collection_items(t: str, offset: int = None, limit: int = None, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns an array of all items in the collection `t`.
     Items are returned as JSON, and have all of their attributes (and corresponding values).
     Note that this route may take a while to respond, depending on the size of the collection.
     """
-    if t not in config["api.node_collections"] + config["api.edge_collections"]:
+    if t not in NODE_COLLECTIONS + EDGE_COLLECTIONS:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
 
-    return [{k: v for k, v in i.items() if k != "_id"} for i in MongoInstance.DB()[t].find()]
+    if limit is None:
+        limit = config["api.pagination_max"]
+    elif limit > config["api.pagination_max"]:
+        raise _HTTPException(status_code=422, detail=f"Limit cannot be greater than {config['api.pagination_max']:,}")
+
+    kwargs = {}
+    if offset is not None:
+        kwargs["skip"] = offset
+    kwargs["limit"] = limit
+
+    return [{k: v for k, v in i.items() if k != "_id"} for i in MongoInstance.DB()[t].find(**kwargs)]
 
 
 # Helper function for ID mapper
@@ -228,7 +321,8 @@ def get_primary_id(supplied_id, coll):
 
 
 @router.get("/get_by_id/{t}", summary="Get by ID")
-def get_by_id(t: str, q: list[str] = DEFAULT_QUERY):
+@check_api_key_decorator
+def get_by_id(t: str, q: list[str] = DEFAULT_QUERY, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns an array of items with one or more of the specified query IDs, `q`, from a collection, `t`.
     The query IDs are of the form `{database}.{accession}`, for example `uniprot.Q9UBT6`.
@@ -238,7 +332,7 @@ def get_by_id(t: str, q: list[str] = DEFAULT_QUERY):
     if not q:
         return []
 
-    if t not in config["api.node_collections"]:
+    if t not in NODE_COLLECTIONS:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
 
     result = MongoInstance.DB()[t].find({"domainIds": {"$in": q}})
@@ -254,7 +348,8 @@ def get_by_id(t: str, q: list[str] = DEFAULT_QUERY):
     },
     summary="ID map",
 )
-def id_map(t: str, q: list[str] = DEFAULT_QUERY):
+@check_api_key_decorator
+def id_map(t: str, q: list[str] = DEFAULT_QUERY, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Returns a hash map of `{user-supplied-id: [primaryDomainId]}` for a set of user-specified identifiers in a
     user-specified collection, `t`.
@@ -266,7 +361,7 @@ def id_map(t: str, q: list[str] = DEFAULT_QUERY):
     if not q:
         return {}
 
-    if t not in config["api.node_collections"]:
+    if t not in NODE_COLLECTIONS:
         raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
     result = {item: get_primary_id(item, t) for item in q}
     return result

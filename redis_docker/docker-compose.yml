@@ -1,7 +1,14 @@
 version: "3.1"
 
 services:
-  redis:
+  open-nedrex-redis:
+    image: redis
+    ports:
+      - "127.0.0.1:5379:6379"
+
+  licensed-nedrex-redis:
     image: redis
     ports:
       - "127.0.0.1:6379:6379"
+
+
