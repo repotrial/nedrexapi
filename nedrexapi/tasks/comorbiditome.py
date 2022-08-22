@@ -71,7 +71,7 @@ def run_comorbiditome_build(uid: str):
         if not details:
             raise Exception(f"No comorbiditome job with UID {uid!r}")
         _COMORBIDITOME_COLL.update_one({"uid": uid}, {"$set": {"status": "running"}})
-        logger.info(f"starting closeness job {uid!r}")
+        logger.info(f"starting comorbiditome build job {uid!r}")
 
     induce_nodes: _Optional[set[str]] = None
 
