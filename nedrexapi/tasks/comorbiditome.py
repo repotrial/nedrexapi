@@ -1,3 +1,4 @@
+import string
 import traceback
 from csv import DictReader as _DictReader
 from typing import Any as _Any
@@ -43,6 +44,18 @@ def parse_comorbiditome() -> _Generator[dict[str, _Any], None, None]:
             yield row
 
 
+def parse_code_description_map() -> dict[str, str]:
+    fname = _STATIC_DIR / "scraped_icd10_codes_2019.tsv"
+    dct: dict[str, str] = {}
+    with fname.open() as f:
+        for line in f:
+            code, description, *_ = line.split("\t")
+            code = "".join(i for i in code if i in string.ascii_uppercase + string.digits + ".")
+            dct[code] = description
+
+    return dct
+
+
 def run_comorbiditome_build_wrapper(uid: str):
     try:
         run_comorbiditome_build(uid)
@@ -76,16 +89,35 @@ def run_comorbiditome_build(uid: str):
 
     g = nx.Graph()
 
+    code_description_map = parse_code_description_map()
+
     for row in parse_comorbiditome():
-        if not min_phi_cor <= row["phi_cor"] <= max_phi_cor:
+        if not (min_phi_cor <= row["phi_cor"] <= max_phi_cor):
             continue
-        if not min_p_value <= row["p_value"] <= max_p_value:
+        if not (min_p_value <= row["p_value"] <= max_p_value):
             continue
         if induce_nodes is not None and not (row["disease1"] in induce_nodes and row["disease2"] in induce_nodes):
             continue
 
         node_a = row["disease1"]
         node_b = row["disease2"]
+
+        for node, count in (
+            (
+                node_a,
+                row.pop(
+                    "count_disease1",
+                ),
+            ),
+            (
+                node_b,
+                row.pop(
+                    "count_disease2",
+                ),
+            ),
+        ):
+            if node not in g:
+                g.add_node(node, displayName=node, description=code_description_map.get(node, ""), count=count)
 
         g.add_edge(node_a, node_b, **row)
 
