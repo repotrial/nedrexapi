@@ -107,7 +107,7 @@ def map_icd10_to_mondo(icd10: list[str] = _Query(None), x_api_key: str = _API_KE
 
     icd10_set = set(icd10)
     disorder_coll = MongoInstance.DB()["disorder"]
-    disorder_res = defaultdict(list)
+    disorder_res: dict[str, list[str]] = {code: list() for code in icd10_set}
 
     for disorder in disorder_coll.find({"icd10": {"$in": icd10}}):
         for icd10_term in disorder["icd10"]:
@@ -144,7 +144,7 @@ def map_mondo_to_icd10(
         return {}
 
     disorder_coll = MongoInstance.DB()["disorder"]
-    disorder_res = defaultdict(list)
+    disorder_res: dict[str, list[str]] = {disorder: list() for disorder in mondo}
 
     for disorder in disorder_coll.find({"primaryDomainId": {"$in": mondo}}):
         pdid = disorder["primaryDomainId"]
