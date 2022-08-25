@@ -53,6 +53,9 @@ def parse_code_description_map() -> dict[str, str]:
             code = "".join(i for i in code if i in string.ascii_uppercase + string.digits + ".")
             dct[code] = description
 
+    # Adding extra codes that are not bespoke to the Estonia Biobank version of ICD-10
+    dct["B59"] = "Pneumocystosis"
+
     return dct
 
 
@@ -117,9 +120,11 @@ def run_comorbiditome_build(uid: str):
             ),
         ):
             if node not in g:
-                g.add_node(node, displayName=node, description=code_description_map.get(node, ""), count=count)
+                g.add_node(
+                    node, displayName=code_description_map.get(node, ""), primaryDomainId=f"icd10.{node}", count=count
+                )
 
-        g.add_edge(node_a, node_b, **row)
+        g.add_edge(node_a, node_b, **row, type="DisorderComorbidWithDisorder")
 
     nx.set_node_attributes(g, "Disorder", name="type")
 
