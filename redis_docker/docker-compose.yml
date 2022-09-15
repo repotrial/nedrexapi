@@ -5,10 +5,11 @@ services:
     image: redis
     ports:
       - "127.0.0.1:5379:6379"
+    restart: always
 
   licensed-nedrex-redis:
     image: redis
     ports:
       - "127.0.0.1:6379:6379"
-
+    restart: always
 
