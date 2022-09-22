@@ -1,26 +1,32 @@
-[tool.poetry]
+[project]
 name = "nedrexapp"
 version = "0.1.0"
 description = ""
-authors = ["james-skelton <james.skelton@newcastle.ac.uk>"]
+authors = [{name = "James Skelton", email = "james.skelton@newcastle.ac.uk"}]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-fastapi = "^0.70.0"
-uvicorn = "^0.15.0"
-cachetools = "^4.2.4"
-bicon = "^1.3.2"
-click = "^8.0.3"
-neo4j = "^4.3.7"
-python-multipart = "^0.0.5"
-requests = "^2.26.0"
-filelock = "^3.3.2"
-redis = "^3.5.3"
-pottery = "^1.4.7"
+dependencies = [
+    "fastapi == 0.70.0",
+    "uvicorn == 0.15.0",
+    "cachetools == 4.2.4",
+    "bicon == 1.3.2",
+    "click == 8.0.3",
+    "neo4j == 4.3.7",
+    "python-multipart == 0.0.5",
+    "requests == 2.26.0",
+    "filelock == 3.3.2",
+    "redis == 3.5.3",
+    "pottery == 1.4.7",
+    "gseapy <= 0.10.7",
+]
 
-[tool.poetry.dev-dependencies]
-pytest = "^5.2"
+[project.optional-dependencies]
+dev = [
+     "pytest == 5.2"
+]
+
+[tool.setuptools]
+packages = ["nedrexapi"]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
