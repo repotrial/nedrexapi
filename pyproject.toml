@@ -17,6 +17,14 @@ dependencies = [
     "redis == 3.5.3",
     "pottery == 1.4.7",
     "gseapy <= 0.10.7",
+    "gunicorn == 20.1.0",
+    "slowapi == 0.1.6",
+    "toml == 0.10.2",
+    "pymongo == 4.2.0",
+    "loguru == 0.6.0",
+    "rq == 1.11.0",
+    "more-itertools == 8.14.0",
+    "py2neo == 2021.2.3",
 ]
 
 [project.optional-dependencies]
