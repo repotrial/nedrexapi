@@ -32,6 +32,12 @@ from nedrexapi.routers import trustrank as _trustrank
 from nedrexapi.routers import validation as _validation
 from nedrexapi.routers import variant as _variant
 
+base = "/"
+if config.get("api.base") is not None:
+    if config["api.base"] != "/":
+        base = config["api.base"]
+
+
 app = FastAPI(
     title="NeDRexAPI",
     description="""
@@ -49,7 +55,8 @@ For a tutorial on using the API, please consult
 """,
     version="2.0.0a",
     docs_url=None,
-    redoc_url="/" if config.get("api.base") is None else config["api.base"],
+    redoc_url=base,
+    openapi_url=f"{base}/openapi.json",
 )
 
 if config["api.rate_limiting_enabled"]:
