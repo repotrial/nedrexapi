@@ -8,6 +8,8 @@ from fastapi import APIRouter as _APIRouter
 from fastapi import HTTPException as _HTTPException
 from fastapi import Query as _Query
 from fastapi import Response as _Response
+from pydantic import BaseModel as _BaseModel
+from pydantic import Field as _Field
 
 from nedrexapi.common import (
     _API_KEY_HEADER_ARG,
@@ -173,6 +175,87 @@ def get_attribute_values(t: str, attribute: str, format: str, x_api_key: str = _
         dict_writer.writerows(results)
         return _Response(content=string.getvalue(), media_type="plain/text")
 
+
+class AttributeRequest(_BaseModel):
+    node_ids: list[str] = _Field(None, title="Primary domain IDs of nodes", description="Primary domain IDs of the nodes the attributes are requested for")
+    attributes: list[str] = _Field(None, title="Attributes requested", description="Attributes for which values are requested")
+
+    class Config:
+        extra = "forbid"
+
+@router.post("/{t}/attributes/{format}", summary="Get for collection members selected attribute values")
+@check_api_key_decorator
+def get_attribute_values(t: str, format: str, ar: AttributeRequest = AttributeRequest(), x_api_key: str = _API_KEY_HEADER_ARG):
+    if t not in NODE_COLLECTIONS:
+        raise _HTTPException(
+            status_code=404, detail=f"Collection {t!r} is not in the database"
+        )
+
+    if ar.attributes is None:
+        raise _HTTPException(status_code=404, detail=f"No attribute(s) requested")
+    if ar.node_ids is None:
+        raise _HTTPException(status_code=404, detail=f"No node(s) requested")
+
+    query = {"primaryDomainId": {"$in": ar.node_ids}}
+
+    results = [
+        {
+            "primaryDomainId": i["primaryDomainId"],
+            **{attribute: i.get(attribute) for attribute in ar.attributes},
+        }
+        for i in MongoInstance.DB()[t].find(query)
+    ]
+
+    if format == "json":
+        return results
+
+    elif format == "csv":
+        string = _StringIO()
+        keys = results[0].keys()
+        dict_writer = _DictWriter(string, keys, delimiter=",")
+        dict_writer.writeheader()
+        dict_writer.writerows(results)
+        return _Response(content=string.getvalue(), media_type="plain/text")
+
+    elif format == "tsv":
+        string = _StringIO()
+        keys = results[0].keys()
+        dict_writer = _DictWriter(string, keys, delimiter="\t")
+        dict_writer.writeheader()
+        dict_writer.writerows(results)
+        return _Response(content=string.getvalue(), media_type="plain/text")
+    # if t in NODE_COLLECTIONS:
+    #     results = [
+    #         {"primaryDomainId": i["primaryDomainId"], attribute: i.get(attribute)} for i in MongoInstance.DB()[t].find()
+    #     ]
+    # elif t in EDGE_COLLECTIONS:
+    #     try:
+    #         results = [
+    #             {
+    #                 "sourceDomainId": i["sourceDomainId"],
+    #                 "targetDomainId": i["targetDomainId"],
+    #                 attribute: i.get(attribute),
+    #             }
+    #             for i in MongoInstance.DB()[t].find()
+    #         ]
+    #     except KeyError:
+    #         results = [
+    #             {"memberOne": i["memberOne"], "memberTwo": i["memberTwo"], attribute: i.get(attribute)}
+    #             for i in MongoInstance.DB()[t].find()
+    #         ]
+    # else:
+    #     raise _HTTPException(status_code=404, detail=f"Collection {t!r} is not in the database")
+    #
+    # if format == "json":
+    #     return results
+    # elif format in {"csv", "tsv"}:
+    #     delimiter = "," if format == "csv" else "\t"
+    #     string = _StringIO()
+    #     keys = results[0].keys()
+    #     dict_writer = _DictWriter(string, list(keys), delimiter=delimiter)
+    #     dict_writer.writeheader()
+    #     dict_writer.writerows(results)
+    #     return _Response(content=string.getvalue(), media_type="plain/text")
 
 @router.get("/{t}/attributes/{format}", summary="Get collection member attribute values")
 @check_api_key_decorator
