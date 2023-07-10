@@ -3,12 +3,14 @@ version: "3.1"
 services:
   open-nedrex-redis:
     image: redis
+    container_name: open-nedrex-live-redis
     ports:
       - "127.0.0.1:5379:6379"
     restart: always
 
   licensed-nedrex-redis:
     image: redis
+    container_name: licensed-nedrex-live-redis
     ports:
       - "127.0.0.1:6379:6379"
     restart: always
