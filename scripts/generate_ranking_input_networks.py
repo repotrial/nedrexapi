@@ -6,10 +6,19 @@ import graph_tool as gt
 import networkx as nx
 
 
-apiNetwork_path = "/home/james/nedrex/nedrex_api/static/"
+apiNetwork_path = "/srv/nedrex/nedrex_v2/nedrex_files/nedrex_api/static/"
 os.chdir(apiNetwork_path)
 # get the network containing protein-protein and protein-drug interactions with proper parameters via API
-base_url = "http://82.148.225.92:8123"
+base_url = "https://api.nedrex.net/licensed"
+api_key_url= f"{base_url}/admin/api_key/generate"
+
+api_key_payload = {"accept_eula":True}
+api_key = requests.post(api_key_url, json=api_key_payload)
+if '"' in api_key.text:
+    api_key = api_key.text.split('"')[1]
+
+headers = {"x-api-key": api_key}
+
 submit_url = f"{base_url}/graph/builder"
 
 data = {
@@ -28,13 +37,13 @@ data = {
 }
 
 print("Submitting request")
-gbuild = requests.post(submit_url, json=data)
+gbuild = requests.post(submit_url, json=data, headers=headers)
 print(gbuild.status_code, gbuild.text)
 print(f"UID for job: {gbuild.json()}")
 uid = gbuild.json()
 
 while True:
-    progress = requests.get(f"{base_url}/graph/details/{uid}")
+    progress = requests.get(f"{base_url}/graph/details/{uid}", headers=headers)
     built = progress.json()["status"] == "completed"
     if built:
         break
