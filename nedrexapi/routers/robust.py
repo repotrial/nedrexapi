@@ -98,7 +98,7 @@ def graphml_to_json(file):
 
         json_data = json.dumps(data, indent=4)
 
-        return Response(json_data, content_type='application/json')
+        return Response(json_data, media_type='application/json')
 
     except Exception as e:
         return Response(status=500, content=f"Error: {e}")
