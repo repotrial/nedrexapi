@@ -37,6 +37,8 @@ if config.get("api.base") is not None:
     if config["api.base"] != "/":
         base = config["api.base"]
 
+print(f"{config['api.mode']} running on port {config['api.port']} under {base}")
+
 
 app = FastAPI(
     title="NeDRexAPI",

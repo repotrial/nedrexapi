@@ -11,4 +11,8 @@ done
 
 
 export NEDREX_CONFIG=$config
+rq worker --url redis://localhost:$port/$db default &
+rq worker --url redis://localhost:$port/$db default &
+rq worker --url redis://localhost:$port/$db default &
+rq worker --url redis://localhost:$port/$db default &
 rq worker --url redis://localhost:$port/$db default 

@@ -60,7 +60,35 @@ class ComorbiditomeRequest(BaseModel):
         extra = "forbid"
 
 
+class ComorbiditomeICD10toMODNORequest(BaseModel):
+    icd10: _Optional[list[str]] = Field(
+        None,
+        title="ICD10 disorder IDs",
+        description=(
+            "ICD10 disorders from comorbitome to map to MONDO space. " "Default: `None` does not induce a subnetwork."
+        ),
+    )
+
+    class Config:
+        extra = "forbid"
+
+class ComorbiditomeMODNOtoICD10Request(BaseModel):
+    only_3char: _Optional[bool] = Field(False, title="Only return 3 character codes", description="Prune ICD10 codes to only include 3 characters")
+    exclude_3char: _Optional[bool] = Field(False, title="Exclude 3 character codes", description="Remove 3 character ICD10 codes to keep only specific disease terms")
+    mondo: _Optional[list[str]] = Field(
+        None,
+        title="MONDO disorder IDs",
+        description=(
+            "MODNO disorders to map to ICD10 (comorbiditome) space." "Default: `None` does not induce a subnetwork."
+        ),
+    )
+
+    class Config:
+        extra = "forbid"
+
 _DEFAULT_COMORBIDITOME_REQUEST = ComorbiditomeRequest()
+_DEFAULT_ICD10_MAPPING_REQUEST = ComorbiditomeICD10toMODNORequest()
+_DEFAULT_MONDO_MAPPING_REQUEST = ComorbiditomeMODNOtoICD10Request()
 
 
 _TypeMap = tuple[tuple[str, _Type], ...]
@@ -91,10 +119,9 @@ def parse_comorbiditome() -> _Generator[dict[str, _Any], None, None]:
             apply_typemap(row, TYPE_MAP)
             yield row
 
-
-@router.get("/icd10_to_mondo", summary="Map ICD10 term to MONDO")
+@router.post("/icd10_to_mondo", summary="Map ICD10 term to MONDO")
 @check_api_key_decorator
-def map_icd10_to_mondo(icd10: list[str] = _Query(None), x_api_key: str = _API_KEY_HEADER_ARG):
+def map_icd10_to_mondo(mr: ComorbiditomeICD10toMODNORequest = _DEFAULT_ICD10_MAPPING_REQUEST, x_api_key: str = _API_KEY_HEADER_ARG):
     """
     Map one or more disorders in the ICD-10 namespace to MONDO.
 
@@ -102,28 +129,25 @@ def map_icd10_to_mondo(icd10: list[str] = _Query(None), x_api_key: str = _API_KE
     disorders. For example, an ICD-10 term may map onto a MONDO term that is
     more general, more specific, or differently specific.
     """
-    if icd10 is None:
+    if mr.icd10 is None:
         return {}
 
-    icd10_set = set(icd10)
+    icd10 = list(mr.icd10)
     disorder_coll = MongoInstance.DB()["disorder"]
-    disorder_res: dict[str, list[str]] = {code: list() for code in icd10_set}
+    disorder_res: dict[str, list[str]] = {code: list() for code in icd10}
 
     for disorder in disorder_coll.find({"icd10": {"$in": icd10}}):
         for icd10_term in disorder["icd10"]:
-            if icd10_term in icd10_set:
+            if icd10_term in icd10:
                 disorder_res[icd10_term].append(disorder["primaryDomainId"])
 
     return disorder_res
 
 
-@router.get("/mondo_to_icd10", summary="Map MONDO term to ICD10")
+@router.post("/mondo_to_icd10", summary="Map MONDO term to ICD10")
 @check_api_key_decorator
 def map_mondo_to_icd10(
-    mondo: list[str] = _Query(None),
-    only_3char: bool = False,
-    exclude_3char: bool = False,
-    x_api_key: str = _API_KEY_HEADER_ARG,
+  mr: ComorbiditomeMODNOtoICD10Request = _DEFAULT_MONDO_MAPPING_REQUEST,x_api_key: str = _API_KEY_HEADER_ARG,
 ):
     """
     Map one or more disorders in the MONDO namespace to ICD-10.
@@ -136,21 +160,29 @@ def map_mondo_to_icd10(
     disorders. For example, a MONDO term may map onto an ICD-10 term that is
     more general, more specific, or differently specific.
     """
-    if only_3char and exclude_3char:
+    query: dict[str, list[str], bool, None] ={
+        "only_3char" : mr.only_3char,
+        "exclude_3char" : mr.exclude_3char,
+        "mondo": mr.mondo
+    }
+
+    if query['only_3char'] and query['exclude_3char']:
         raise _HTTPException(
             400, "cannot both exclude and only return 3 character codes -" " please select one or neither"
         )
-    if mondo is None:
+    if query['mondo'] is None:
         return {}
+
+    mondo = list(query['mondo'])
 
     disorder_coll = MongoInstance.DB()["disorder"]
     disorder_res: dict[str, list[str]] = {disorder: list() for disorder in mondo}
 
     for disorder in disorder_coll.find({"primaryDomainId": {"$in": mondo}}):
         pdid = disorder["primaryDomainId"]
-        if only_3char:
+        if query['only_3char']:
             disorder_res[pdid] = [item for item in disorder["icd10"] if THREE_CHAR_REGEX.match(item)]
-        elif exclude_3char:
+        elif query['exclude_3char']:
             disorder_res[pdid] = [item for item in disorder["icd10"] if not THREE_CHAR_REGEX.match(item)]
         else:
             disorder_res[pdid] = disorder["icd10"]
