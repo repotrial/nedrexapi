@@ -90,6 +90,24 @@ def robust_status(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
 @router.get("/results", summary="ROBUST Results")
 @check_api_key_decorator
 def robust_results(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
+    import networkx as nx
+    query = {"uid": uid}
+    result = _ROBUST_COLL.find_one(query)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"No ROBUST job with UID {uid!r}")
+    if result["status"] == "running":
+        raise HTTPException(status_code=102, detail=f"ROBUST job with UID {uid!r} is still running")
+    if result["status"] == "failed":
+        raise HTTPException(status_code=404, detail=f"No results for ROBUST job with UID {uid!r} (failed)")
+
+    file = f"{_ROBUST_DIR}/{uid}.graphml"
+    G = nx.read_graphml(file)
+    x = nx.readwrite.json_graph.node_link_data(G)
+    return Response(x, media_type="text/plain")
+
+@router.get("/download", summary="ROBUST Download")
+@check_api_key_decorator
+def diamond_download(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     query = {"uid": uid}
     result = _ROBUST_COLL.find_one(query)
     if not result:
