@@ -87,10 +87,25 @@ def robust_status(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     return result
 
 
+def graphml_to_json(file):
+    from networkx.readwrite import json_graph
+    import json
+    import networkx as nx
+    try:
+        graph = nx.read_graphml(file)
+
+        data = json_graph.node_link_data(graph)
+
+        json_data = json.dumps(data, indent=4)
+
+        return Response(json_data, content_type='application/json')
+
+    except Exception as e:
+        return Response(status=500, content=f"Error: {e}")
+
 @router.get("/results", summary="ROBUST Results")
 @check_api_key_decorator
 def robust_results(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
-    import networkx as nx
     query = {"uid": uid}
     result = _ROBUST_COLL.find_one(query)
     if not result:
@@ -101,9 +116,7 @@ def robust_results(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
         raise HTTPException(status_code=404, detail=f"No results for ROBUST job with UID {uid!r} (failed)")
 
     file = f"{_ROBUST_DIR}/{uid}.graphml"
-    G = nx.read_graphml(file)
-    x = nx.readwrite.json_graph.node_link_data(G)
-    return Response(x, media_type="text/plain")
+    return graphml_to_json(file)
 
 @router.get("/download", summary="ROBUST Download")
 @check_api_key_decorator
