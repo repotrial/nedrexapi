@@ -273,7 +273,7 @@ def graph_constructor(uid):
 
         nx.set_edge_attributes(G, updates)
 
-    nx.write_graphml(g, f"{_GRAPH_DIR / query['uid']}.graphml")
+    nx.write_graphml(g, f"{_GRAPH_DIR / query['uid']}.graphml", encoding='utf-8')
     with _GRAPH_COLL_LOCK:
         _GRAPH_COLL.update_one({"uid": query["uid"]}, {"$set": {"status": "completed"}})
 

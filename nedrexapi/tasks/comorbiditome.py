@@ -128,7 +128,7 @@ def run_comorbiditome_build(uid: str):
 
     nx.set_node_attributes(g, "Disorder", name="type")
 
-    nx.write_graphml(g, _COMORBIDITOME_DIR / f"{uid}.graphml")
+    nx.write_graphml(g, _COMORBIDITOME_DIR / f"{uid}.graphml", encoding='utf-8')
 
     with _COMORBIDITOME_COLL_LOCK:
         _COMORBIDITOME_COLL.update_one({"uid": uid}, {"$set": {"status": "completed"}})
