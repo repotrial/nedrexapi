@@ -91,17 +91,17 @@ def graphml_to_json(file):
     from networkx.readwrite import json_graph
     import json
     import networkx as nx
-    try:
-        graph = nx.read_graphml(file)
+    # try:
+    graph = nx.read_graphml(file)
 
-        data = json_graph.node_link_data(graph)
+    data = json_graph.node_link_data(graph)
 
-        json_data = json.dumps(data, indent=4)
+    json_data = json.dumps(data, indent=4)
 
-        return Response(json_data, content_type='application/json')
+    return Response(json_data, media_type='application/json')
 
-    except Exception as e:
-        return Response(status=500, content=f"Error: {e}")
+    # except Exception as e:
+    #     return Response(status=500, content=f"Error: {e}")
 
 @router.get("/results", summary="ROBUST Results")
 @check_api_key_decorator
