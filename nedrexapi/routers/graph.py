@@ -259,7 +259,7 @@ def graph_download(uid: str, x_api_key: str = _API_KEY_HEADER_ARG):
     data = _GRAPH_COLL.find_one({"uid": uid})
 
     if data and data["status"] == "completed":
-        return _Response((_GRAPH_DIR / f"{uid}.graphml").open("r").read(), media_type="text/plain")
+        return _Response((_GRAPH_DIR / f"{uid}.graphml").open("r", encoding="utf-8").read(), media_type="text/plain")
     elif data and data["status"] == "running":
         raise _HTTPException(status_code=102, detail=f"Graph with UID {uid!r} does not have completed status.")
     elif data and data["status"] == "failed":
