@@ -372,7 +372,7 @@ def collection_details(t: str, x_api_key: str = _API_KEY_HEADER_ARG):
     },
     summary="List all collection items",
 )
-@_cached(cache=_LRUCache(maxsize=32))
+# @_cached(cache=_LRUCache(maxsize=32))
 @check_api_key_decorator
 def list_all_collection_items(t: str, offset: int = None, limit: int = None, x_api_key: str = _API_KEY_HEADER_ARG):
     """
